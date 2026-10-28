@@ -1,0 +1,94 @@
+{
+ "as_of": "2026-10-28",
+ "regime": 2,
+ "account": {
+  "equity": 10000,
+  "monthly_deposit": 1500,
+  "mode": "growth_cash",
+  "max_positions": 2,
+  "max_position_pct": 1.0,
+  "risk_pct": 0.05,
+  "chase_limit_pct": 1.0,
+  "exit_mode": "ladder",
+  "use_undercut": false,
+  "idle": "SPY"
+ },
+ "sells": [],
+ "buys": [
+  {
+   "ticker": "RVTY",
+   "allowed": true,
+   "size_note": "full size",
+   "buy_stop": 166.19,
+   "limit": 167.84,
+   "shares": 59,
+   "cost": 9805.21,
+   "pct_of_account": 98.1,
+   "max_stop": 162.85,
+   "risk_at_max_stop": 196.95,
+   "risk_pct_of_account": 1.97,
+   "stop_rule": "stop = entry-day low; if that low is below 162.85 at the time of the fill, sell / don't take it",
+   "undercut_entry": "",
+   "kind": "Breakout",
+   "t1": 176.15,
+   "reward_risk": 3.0,
+   "exits": [
+    {
+     "when": "price hits 176.15 (first target)",
+     "sell": 14,
+     "then": "move stop to 166.19 (breakeven)"
+    },
+    {
+     "when": "daily close below 8 EMA (now 157.90)",
+     "sell": 14
+    },
+    {
+     "when": "daily close below 21 EMA (now 153.55)",
+     "sell": 14
+    },
+    {
+     "when": "daily close below 50 EMA (now 143.23)",
+     "sell": 17
+    }
+   ]
+  },
+  {
+   "ticker": "DHT",
+   "allowed": true,
+   "size_note": "full size",
+   "buy_stop": 26.92,
+   "limit": 27.18,
+   "shares": 367,
+   "cost": 9879.64,
+   "pct_of_account": 98.8,
+   "max_stop": 26.31,
+   "risk_at_max_stop": 223.47,
+   "risk_pct_of_account": 2.23,
+   "stop_rule": "stop = entry-day low; if that low is below 26.31 at the time of the fill, sell / don't take it",
+   "undercut_entry": "",
+   "kind": "Breakout",
+   "t1": 28.71,
+   "reward_risk": 2.9,
+   "exits": [
+    {
+     "when": "price hits 28.71 (first target)",
+     "sell": 91,
+     "then": "move stop to 26.92 (breakeven)"
+    },
+    {
+     "when": "daily close below 8 EMA (now 24.21)",
+     "sell": 91
+    },
+    {
+     "when": "daily close below 21 EMA (now 23.80)",
+     "sell": 91
+    },
+    {
+     "when": "daily close below 50 EMA (now 22.30)",
+     "sell": 94
+    }
+   ]
+  }
+ ],
+ "holding": []
+}
