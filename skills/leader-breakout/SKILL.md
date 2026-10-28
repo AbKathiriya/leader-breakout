@@ -1,6 +1,6 @@
 ---
 name: leader-breakout
-description: Run one or more tickers through the leader-breakout swing framework (market regime → group leadership → tight base → breakout/undercut entry, low-of-day stop, EMA trims) and say whether each is tradable now, with trigger, stop, first target, size and an options alternative from Robinhood.
+description: Check any ticker or list against the leader-breakout swing framework: verdict, trigger, stop, first target, size, annotated chart and a Robinhood options alternative.
 ---
 
 # Leader Breakout: ticker check
@@ -33,8 +33,9 @@ Group context sharpens the call. A stock in a top-10 industry with RS ≥ 80 is 
 
 - **Breakout:** buy-stop a few cents above `trigger`. The article's "sniper" entry is the first 5- or 15-minute candle that clears the trigger with volume pacing at least 1.5× normal. If the user asks during market hours, pull today's 5-minute bars with Robinhood `get_equity_historicals` (interval `5minute`) to see whether it has already triggered, and on how much volume.
 - **Stop:** low of the entry day. `max_stop` is the trigger minus the smaller of ½ ADR and 3%. If the day's low is already below `max_stop`, skip the trade. In the backtest, allowing stops up to 1 ADR kept returns similar but more than doubled the max drawdown (−36% vs −16%).
-- **Undercut & rally (alternative):** price dips below `undercut` (the base low), then reclaims it. Enter on the reclaim, with the stop at the day's low.
-- **Size:** shares = (account × 2% × regime factor) ÷ (entry − stop). The regime factor is 1 in risk-on and 0.5 in caution. Cap any position at 25% of the account. With stops this tight the cap usually binds, so real risk is about 0.25–0.75% of the account. Say so. If the account size isn't known, give the formula and a per-$100k example.
+- **Undercuts:** don't suggest undercut-and-rally entries. They lost money in growth-mode testing.
+- **Episodic pivot (EP):** if the ticker gapped ≥15% today or on the last session, on ≥5× its 50-day volume, closed in the upper half of its range, and the day's range is ≥2× its ADR, it's an EP. The entry is a buy-stop above that gap day's high, valid the next session only, with the same low-of-day stop and max-stop rule (max stop = entry − min(½ ADR, 3%)). A gap with a tiny range (≈0.1–0.2× ADR) is a buyout announcement: AVOID.
+- **Size (growth mode, account under $100k, cash only):** read `data/account.json` (equity, max_positions 2, max_position_pct 1.0, idle SPY). Shares = floor(min(equity × 5% × regime factor ÷ (buy-stop − max_stop), equity × regime factor ÷ limit price)). The regime factor is 1 in risk-on and 0.5 in caution. The cash cap usually binds, so the first fill can use the whole account. Report the worst-case dollar risk at the max stop. Idle cash sits in SPY: say to sell enough SPY at the open on the day the ticket is live. Above $100k, switch to standard sizing: 2% risk, 25% cap, up to 8 positions.
 - **First target:** `t1`, the nearest overhead swing high at least 1R away, otherwise 3R. Report R:R using `max_stop` as the worst case. Below 2R at the max stop, call it marginal.
 - **Management:** sell ¼ at `t1` and move the stop to breakeven. Sell ¼ on a daily close below the 8 EMA, ¼ on a close below the 21 EMA, and the rest on a close below the 50 EMA.
 - **Earnings:** check `get_earnings_results` for the ticker. If a report falls within ~10 trading days, flag it. A low-of-day stop doesn't protect against an earnings gap, so either wait or size for the gap.

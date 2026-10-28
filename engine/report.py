@@ -10,7 +10,8 @@ import base64
 import json
 from pathlib import Path
 
-TEMPLATE = r"""<title>Leader Breakout Watchlist</title>
+TEMPLATE = r"""<meta charset="utf-8">
+<title>Leader Breakout Watchlist</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
@@ -63,6 +64,14 @@ header { display: grid; gap: 10px; }
 .checks { display: flex; flex-wrap: wrap; gap: 6px; }
 .opt { font-size: 13px; border-top: 1px dashed var(--line); padding-top: 10px; color: var(--ink); }
 .opt b { font-weight: 600; }
+.ticket { display: grid; gap: 8px; border: 1px solid var(--line); border-radius: 6px; padding: 12px 14px; background: var(--chip); }
+.ticket h3 { font-size: 14px; margin: 0; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.ticket dl { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 6px 14px; margin: 0; }
+.ticket dt { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
+.ticket dd { margin: 0; font-family: var(--f-mono); font-variant-numeric: tabular-nums; }
+.ticket ol { margin: 0; padding-left: 20px; font-size: 13.5px; display: grid; gap: 2px; }
+.ticket .note { font-size: 13px; color: var(--muted); }
+.pill.warn { color: var(--warn); } .pill.bad { color: var(--bad); }
 .empty { background: var(--panel); border: 1px dashed var(--line); border-radius: 6px; padding: 22px; color: var(--muted); }
 .tbl { overflow-x: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; }
 table { border-collapse: collapse; width: 100%; font-size: 13.5px; }
@@ -90,10 +99,16 @@ footer { color: var(--muted); font-size: 12.5px; max-width: 90ch; }
   <header>
     <div class="eyebrow" id="asof"></div>
     <h1>Leader Breakout Watchlist</h1>
-    <p class="sub">Trend filter, leading groups, the top stocks in them, and which of those are sitting in tight bases. Triggers are buy-stops above the base high; the stop is the entry day's low and must sit above the max-stop line (½ ADR or 3% below the trigger, whichever is closer), or skip the trade.</p>
+    <p class="sub">Growth mode for a cash account under $100k: up to two positions using the whole account, from tight-base breakouts in leading industries and episodic pivots (big gaps on huge volume). Every entry is a buy-stop; the stop is the entry day's low and must sit above the max-stop line, or skip the trade. Idle cash waits in SPY.</p>
   </header>
 
   <section class="regime" id="regime"></section>
+
+  <section style="display:grid;gap:14px" id="orderswrap">
+    <div class="section-head"><h2>This week's orders</h2><span class="meta" id="acctnote"></span></div>
+    <div class="tbl"><table id="orders"></table></div>
+    <p class="meta" id="plan" style="margin:0"></p>
+  </section>
 
   <section style="display:grid;gap:14px">
     <div class="section-head"><h2>Ready setups</h2>
@@ -122,10 +137,10 @@ footer { color: var(--muted); font-size: 12.5px; max-width: 90ch; }
   <section style="display:grid;gap:12px">
     <h2>Trade plan</h2>
     <div class="rules">
-      <div class="rule"><h3>Entry</h3><p>Buy-stop just above the trigger. Want volume running at least 1.5× normal by the break; a 5-minute break with volume is the sniper entry. Undercut alternative: price dips under the base low, then reclaims it.</p></div>
-      <div class="rule"><h3>Stop</h3><p>Low of the entry day. If that low is below the max-stop line, pass: in the backtest, wide stops doubled the drawdown. Size so the stop costs 2% of the account (1% in Caution), capped at 25% of the account per position.</p></div>
+      <div class="rule"><h3>Entry</h3><p>Breakouts: buy-stop just above the base high, valid all week. Episodic pivots: buy-stop above the gap day's high, valid the next day only. Never chase more than 1% above the trigger.</p></div>
+      <div class="rule"><h3>Stop and size</h3><p>Low of the entry day. If that low is below the max-stop line at the fill, exit or don't take it. The backtest's worst-case version of this rule loses money, so honour it immediately. Up to 2 positions; the first fill can use the whole account.</p></div>
       <div class="rule"><h3>Trims</h3><p>Sell ¼ at the first target and move the stop to breakeven. Sell ¼ on a close below the 8 EMA, ¼ on a close below the 21 EMA, the rest on a close below the 50 EMA.</p></div>
-      <div class="rule"><h3>Market filter</h3><p>Risk-on: full size. Caution: half size. Risk-off: no new entries, manage what you hold.</p></div>
+      <div class="rule"><h3>Market filter and idle cash</h3><p>Risk-on: full size. Caution: half size. Risk-off: no new entries. Cash not in a trade sits in SPY; sell it at the open on days you have a live ticket.</p></div>
     </div>
   </section>
 
@@ -138,6 +153,8 @@ fetch('data.json', {cache: 'no-store'}).then(r => r.json()).then(render).catch(e
 });
 function render(D) {
 const S = D.scan, OPT = D.options || {}, BT = D.backtest, IMG = D.charts || {};
+const TK = D.tickets || {tickets: []}, TIX = Object.fromEntries((TK.tickets || []).map(t => [t.ticker, t]));
+const money = x => x == null ? '–' : '$' + Number(x).toLocaleString('en-US', {maximumFractionDigits: 0});
 const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
 const f = (x, d = 2) => x == null || !isFinite(x) ? '–' : Number(x).toLocaleString('en-US', {minimumFractionDigits: d, maximumFractionDigits: d});
 const pct = (x, d = 1) => x == null ? '–' : f(x, d) + '%';
@@ -153,10 +170,27 @@ R.innerHTML = `<div><div class="eyebrow">Market regime</div><div class="state">$
   Object.entries(S.index).map(([k, v]) => `<div><b class="mono">${k}</b> <span class="mono">${f(v.close)}</span>
     ${['ema8','ema21','ema50'].map(e => `<span class="pill ${v.close > v[e] ? 'ok' : 'no'}">${e.replace('ema','')}</span>`).join('')}</div>`).join('')}</div></div>`;
 
-const ready = S.candidates.filter(c => c.setup.ready);
+const ready = S.candidates.filter(c => c.setup.ready).sort((a, b) => ((a.kind === 'EP') - (b.kind === 'EP')) || (b.score || 0) - (a.score || 0));
 const near = S.candidates.filter(c => !c.setup.ready);
 const checkNames = {trend: 'Trend', base_length: 'Base ≥5d', depth: 'Depth', prior_move: 'Prior move', tight: 'Tight', volume_dry: 'Volume dry'};
 
+function ticketHtml(t) {
+  const flag = t.allowed ? `<span class="pill ok">${esc(t.size_note)}</span>` : `<span class="pill bad">${esc(t.size_note)}</span>`;
+  return `<div class="ticket"><h3>Trade ticket ${flag}</h3>
+    <dl><div><dt>Order</dt><dd>Buy ${t.shares} sh, stop ${f(t.buy_stop)} limit ${f(t.limit)}</dd></div>
+      <div><dt>Cost</dt><dd>${money(t.cost)} (${t.pct_of_account}% of account)</dd></div>
+      <div><dt>Worst-case risk</dt><dd>${money(t.risk_at_max_stop)} (${t.risk_pct_of_account}%) at ${f(t.max_stop)}</dd></div>
+      <div><dt>First target</dt><dd>${f(t.t1)} · ${f(t.reward_risk, 1)}R</dd></div></dl>
+    <div class="note">${esc(t.stop_rule)}.${t.undercut_entry ? ' ' + esc(t.undercut_entry) + '.' : ''}</div>
+    <ol>${t.exits.map(e => `<li>Sell ${e.sell} sh when ${esc(e.when)}${e.then ? `, then ${esc(e.then)}` : ''}</li>`).join('')}</ol></div>`;
+}
+const A = TK.account;
+if (A && TK.tickets.length) {
+  document.getElementById('acctnote').textContent = `Account ${money(A.equity)} · up to ${A.max_positions} positions · cash only · +${money(A.monthly_deposit)}/month`;
+  document.getElementById('plan').textContent = TK.plan + (S.regime === 0 ? ' The market is risk-off, so these are for when it turns; place nothing this week.' : '');
+  document.getElementById('orders').innerHTML = `<thead><tr><th>#</th><th>Ticker</th><th class="num">Buy-stop</th><th class="num">Limit</th><th class="num">Shares</th><th class="num">Cost</th><th class="num">Max stop</th><th class="num">Risk</th><th class="num">Target</th><th>Status</th></tr></thead><tbody>${
+    TK.tickets.map((t, i) => `<tr><td class="mono">${i + 1}</td><td><b class="mono">${esc(t.ticker)}</b></td><td class="num">${f(t.buy_stop)}</td><td class="num">${f(t.limit)}</td><td class="num">${t.shares}</td><td class="num">${money(t.cost)}</td><td class="num">${f(t.max_stop)}</td><td class="num">${money(t.risk_at_max_stop)}</td><td class="num">${f(t.t1)}</td><td>${t.allowed ? (i < A.max_positions ? '<span class="pill ok">place</span>' : '<span class="pill">backup</span>') : '<span class="pill bad">wait</span>'}</td></tr>`).join('')}</tbody>`;
+} else document.getElementById('orderswrap').hidden = true;
 const RC = document.getElementById('ready');
 if (!ready.length) RC.innerHTML = `<div class="empty">No leader is in a ready base this week. The table below shows which are closest.</div>`;
 ready.forEach((c, n) => {
@@ -164,16 +198,17 @@ ready.forEach((c, n) => {
   const el = document.createElement('article');
   el.className = 'card';
   el.innerHTML = `<div class="card-top"><div style="display:grid;gap:4px"><div class="tick">${esc(c.ticker)}</div>
-      <div class="meta">${esc(c.name).slice(0, 48)}</div><div class="meta">${esc(c.industry)} · industry #${c.industry_rank_top}</div></div>
-      <div style="display:grid;gap:4px;justify-items:end"><span class="pill">RS ${f(c.rs_rating, 0)}</span><span class="pill">ADR ${pct(c.adr)}</span><span class="pill">Close ${f(c.close)}</span></div></div>
+      <div class="meta">${esc(c.name).slice(0, 48)}</div><div class="meta">${c.kind === 'EP' ? `<span class="pill warn">Episodic pivot · +${f(c.gap_pct, 0)}% gap on ${f(c.vol_x, 0)}× volume (${esc(S.ep_as_of)})</span> ` : ''}${esc(c.industry)}${c.industry_rank_top ? ` · industry #${c.industry_rank_top}` : ''}</div></div>
+      <div style="display:grid;gap:4px;justify-items:end">${c.rs_rating != null ? `<span class="pill">RS ${f(c.rs_rating, 0)}</span>` : ''}<span class="pill">ADR ${pct(c.adr)}</span><span class="pill">Close ${f(c.close)}</span></div></div>
     <div class="chart">${IMG[c.ticker] ? `<img loading="lazy" src="${IMG[c.ticker]}" alt="${esc(c.ticker)} daily chart with base, entry trigger, max stop, undercut level and first target">` : ""}</div>
     <div class="levels">
       <div class="lv" style="--c:var(--trigger)"><span>Trigger</span><b>${f(s.trigger)}</b></div>
       <div class="lv" style="--c:var(--bad)"><span>Max stop</span><b>${f(s.max_stop)}</b></div>
       <div class="lv" style="--c:var(--target)"><span>First target</span><b>${f(s.t1)}</b></div>
-      <div class="lv" style="--c:var(--undercut)"><span>Undercut</span><b>${f(s.undercut)}</b></div>
+      <div class="lv" style="--c:var(--undercut)"><span>${c.kind === 'EP' ? 'Gap-day low' : 'Base low'}</span><b>${f(s.undercut)}</b></div>
     </div>
-    <div class="meta">Base ${s.base_len} days, ${pct(s.depth)} deep after a ${pct(s.prior_move, 0)} run · last 5 days ${pct(s.tight_pct)} range on ${f(s.dry, 2)}× normal volume · ${f(s.rr_at_max_stop, 1)}R to target if stopped at max · ${f(s.ext_atr, 1)} ATR above 8 EMA</div>
+    ${c.kind === 'EP' ? '' : `<div class="meta">Base ${s.base_len} days, ${pct(s.depth)} deep after a ${pct(s.prior_move, 0)} run · last 5 days ${pct(s.tight_pct)} range on ${f(s.dry, 2)}× normal volume · ${f(s.rr_at_max_stop, 1)}R to target if stopped at max · ${f(s.ext_atr, 1)} ATR above 8 EMA</div>`}
+    ${TIX[c.ticker] ? ticketHtml(TIX[c.ticker]) : ''}
     ${o ? `<div class="opt"><b>Options alternative:</b> ${esc(o.summary)}</div>` : ''}`;
   RC.appendChild(el);
 });
@@ -184,7 +219,7 @@ N.innerHTML = `<thead><tr><th>Ticker</th><th>Industry</th><th class="num">RS</th
     return `<tr><td><b class="mono">${esc(c.ticker)}</b></td><td>${esc(c.industry)}</td><td class="num">${f(c.rs_rating, 0)}</td><td class="num">${f(c.close)}</td>
     <td class="num">${f(c.setup.trigger)}</td><td class="num">${pct(c.setup.depth)}</td><td><div class="checks">${miss.map(m => `<span class="pill no">${m}</span>`).join('') || '<span class="pill">history too short</span>'}</div></td></tr>`; }).join('')}</tbody>`;
 
-const VNAME = {base: 'Current rules (bar-path intraday model)', optimistic_entry: 'Optimistic intraday entry', worst_case_entry: 'Worst-case intraday entry', close_confirm_entry: 'Enter at close on volume', no_regime_filter: 'No market filter', no_undercut: 'Breakouts only (no undercuts)', t1_3R: 'First target at 3R', sector_gate_top4: 'Gate on top 4 sectors', article_scope_8x3: 'Article scope: 4 sectors, 8 industries × 3', wide_stops_1adr: 'Stops up to 1 ADR', rs_only_no_groups: 'Top RS stocks, no groups', pos_cap_40: 'Position cap 40%'};
+const VNAME = {base: 'Growth mode (what this page trades)', optimistic_entry: 'Optimistic intraday entry', worst_case_entry: 'Worst-case intraday entry', idle_cash_not_spy: 'Idle cash stays cash', idle_qqq: 'Idle cash in QQQ', no_episodic_pivots: 'Breakouts only', with_undercuts: 'Add undercut entries', standard_mode_8x25pct: 'Standard mode (8 × 25%, for $100k+)', close_confirm_entry: 'Enter at close on volume', no_regime_filter: 'No market filter', no_undercut: 'Breakouts only (no undercuts)', t1_3R: 'First target at 3R', sector_gate_top4: 'Gate on top 4 sectors', article_scope_8x3: 'Article scope: 4 sectors, 8 industries × 3', wide_stops_1adr: 'Stops up to 1 ADR', rs_only_no_groups: 'Top RS stocks, no groups', pos_cap_40: 'Position cap 40%'};
 const bar = (v, max) => `<span class="bar" style="width:${Math.max(4, 80 * v / max)}px"></span>`;
 const SEC = document.getElementById('sectors'), top = new Set(S.top_sectors);
 SEC.innerHTML = `<thead><tr><th>#</th><th>Sector</th><th class="num">Members</th><th class="num">Median RS</th><th class="num">Above 50 EMA</th><th>Score</th></tr></thead><tbody>${
@@ -207,12 +242,20 @@ document.getElementById('foot').textContent = 'Universe: US common stocks from N
 """
 
 
-def build(scan: dict, options: dict | None, backtest: dict | None, out_dir: Path) -> list[str]:
+def build(scan: dict, options: dict | None, backtest: dict | None, out_dir: Path, tickets: dict | None = None,
+          ep: dict | None = None) -> list[str]:
     """Write index.html + data.json + charts/*.png into out_dir. Returns the published file list (besides index)."""
     from .charts import setup_chart
     out_dir.mkdir(parents=True, exist_ok=True)
     (out_dir / "charts").mkdir(exist_ok=True)
     files, charts = [], {}
+    if ep and ep.get("candidates"):
+        if tickets is None:
+            from .tickets import tickets_for
+            tickets = tickets_for(scan, ep=ep)
+        scan = dict(scan)
+        scan["ep_as_of"] = ep["as_of"]
+        scan["candidates"] = list(scan["candidates"]) + ep["candidates"]
     for c in scan["candidates"]:
         if c["setup"]["ready"] and c.get("bars"):
             rel = f"charts/{c['ticker']}.png"
@@ -227,7 +270,11 @@ def build(scan: dict, options: dict | None, backtest: dict | None, out_dir: Path
         (out_dir / "charts" / "equity.png").write_bytes(base64.b64decode(bt["equity_png"]))
         bt["equity_png"] = "charts/equity.png"
         files.append("charts/equity.png")
-    (out_dir / "data.json").write_text(json.dumps({"scan": scan, "options": options or {}, "backtest": bt, "charts": charts}))
+    if tickets is None:
+        from .tickets import tickets_for
+        tickets = tickets_for(scan)
+    (out_dir / "data.json").write_text(json.dumps({"scan": scan, "options": options or {}, "backtest": bt,
+                                                   "charts": charts, "tickets": tickets}))
     files.append("data.json")
     (out_dir / "index.html").write_text(TEMPLATE)
     return files
@@ -238,8 +285,9 @@ if __name__ == "__main__":
     ap.add_argument("scan")
     ap.add_argument("--options")
     ap.add_argument("--backtest")
+    ap.add_argument("--ep", default="data/ep_latest.json")
     ap.add_argument("-o", "--out", default="report")
     a = ap.parse_args()
     load = lambda p: json.loads(Path(p).read_text()) if p and Path(p).exists() else None
-    files = build(load(a.scan), load(a.options), load(a.backtest), Path(a.out))
+    files = build(load(a.scan), load(a.options), load(a.backtest), Path(a.out), ep=load(a.ep))
     print(json.dumps({"page": str(Path(a.out) / "index.html"), "files": files}))

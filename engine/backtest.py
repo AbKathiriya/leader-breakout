@@ -41,6 +41,26 @@ class Config:
     leverage: float = 1.0               # buying power = leverage × equity (2.0 ≈ Reg-T margin)
     margin_rate: float = 0.09           # annual interest on borrowed cash
     rs_only_n: int = 24
+    contribution: float = 0.0           # cash added on the first trading day of each month
+    priority: str = "order"             # order (industry rank) | score (setup quality first)
+    exit_mode: str = "ladder"           # ladder (T1, then 8/21/50 EMA) | qull (sell part after N days, trail SMA)
+    qull_days: int = 4
+    qull_frac: float = 0.5
+    trail_sma: int = 10
+    ep: bool = False                    # episodic-pivot continuation entries (see _ep_candidates)
+    ep_gap: float = 0.10
+    ep_vol: float = 3.0
+    ep_max: int = 10
+    ep_min_range_adr: float = 2.0
+    idle: str = "cash"                  # cash | SPY | QQQ — where uninvested cash sits (sold to fund entries)
+    idle_regime: bool = True            # only hold the idle ETF when the regime is not risk-off
+    idle_reserve: bool = False          # realistic: hold cash (not the ETF) on days with a live ticket to fund       # gap-day range ≥ x × prior ADR (buyouts gap and then pin, range ≈ 0.1–0.2× ADR)
+
+
+# Growth mode (account under $100k, no margin): up to 2 positions using the whole account, breakouts + episodic pivots,
+# no undercuts, idle cash parked in SPY except on days with a live ticket.
+GROWTH_CASH = dict(capital=10_000, risk_pct=0.05, max_positions=2, max_pos_pct=1.0, leverage=1.0, use_undercut=False,
+                   ep=True, ep_gap=0.15, ep_vol=5.0, ep_min_range_adr=2.0, idle="SPY", idle_regime=False, idle_reserve=True)
 
 
 @dataclass
@@ -59,6 +79,7 @@ class Pos:
     t1hit: bool = False
     did8: bool = False
     did21: bool = False
+    i_entry: int = 0
     exits: list = field(default_factory=list)
 
 
@@ -83,6 +104,9 @@ def run(px, ind, atr, universe, regime: pd.Series, p: Params, cfg: Config, verbo
     slip = cfg.slippage
 
     cash, equity = cfg.capital, cfg.capital
+    units = cfg.capital                 # NAV units, so deposits don't count as returns
+    SMA = px["Close"].rolling(cfg.trail_sma).mean().to_numpy(dtype=float) if cfg.exit_mode == "qull" else None
+    in_univ = np.array([t in universe.index for t in px["Close"].columns])
     positions: list[Pos] = []
     trades, curve, watch_log = [], [], []
     watch: list = []          # Setups from last week end
@@ -123,6 +147,14 @@ def run(px, ind, atr, universe, regime: pd.Series, p: Params, cfg: Config, verbo
                 close_part(pos, pos.shares, o, "stop_gap", d)
             elif l <= pos.stop:
                 close_part(pos, pos.shares, pos.stop, "stop" if not pos.t1hit else "stop_be", d)
+            elif cfg.exit_mode == "qull":
+                if not pos.t1hit and i - pos.i_entry >= cfg.qull_days and c > pos.entry:
+                    close_part(pos, max(1, int(pos.shares0 * cfg.qull_frac)), c, f"day{cfg.qull_days}_trim", d)
+                    pos.t1hit, pos.stop = True, pos.entry
+                if pos.shares and pos.t1hit and c < SMA[i, j]:
+                    close_part(pos, pos.shares, c, f"close<sma{cfg.trail_sma}", d)
+                elif pos.shares and c < E3[i, j] and p.exit50_early:
+                    close_part(pos, pos.shares, c, "close<ema50", d)
             else:
                 if not pos.t1hit and h >= pos.t1:
                     close_part(pos, max(1, pos.shares0 // 4), max(o, pos.t1), "t1", d)
@@ -145,9 +177,12 @@ def run(px, ind, atr, universe, regime: pd.Series, p: Params, cfg: Config, verbo
         r_prev = reg[i - 1]
         allowed = (r_prev >= 1) if cfg.regime_filter else True
         size_mult = 0.5 if (cfg.half_size_in_caution and cfg.regime_filter and r_prev == 1) else 1.0
-        if allowed and watch:
+        todays = list(watch)
+        if allowed and cfg.ep and i >= 2:
+            todays += _ep_candidates(i, O, H, L, C, V, V50, in_univ, px["Close"].columns, cfg, ADR)
+        if allowed and todays:
             held = {q.ticker for q in positions}
-            for s in watch:
+            for s in todays:
                 if len(positions) >= cfg.max_positions:
                     break
                 if s.ticker in held or s.ticker in tried:
@@ -161,7 +196,7 @@ def run(px, ind, atr, universe, regime: pd.Series, p: Params, cfg: Config, verbo
                 limit_pct = min(p.max_risk_adr * adr_prev, p.max_risk_pct)
                 touch = cfg.entry_mode in ("touch_opt", "touch_pess", "touch_path", "touch_worst")
                 if touch and h > s.trigger:
-                    kind, entry = "breakout", max(o, s.trigger) * (1 + slip)
+                    kind, entry = ("ep" if getattr(s, "is_ep", False) else "breakout"), max(o, s.trigger) * (1 + slip)
                     max_stop = entry * (1 - limit_pct / 100)
                     if cfg.entry_mode == "touch_path":
                         # Bar-path convention: up bar O→L→H→C (low before the fill), down bar O→H→L→C (fill first).
@@ -201,6 +236,7 @@ def run(px, ind, atr, universe, regime: pd.Series, p: Params, cfg: Config, verbo
                 cash -= sh * entry
                 pos = Pos(s.ticker, kind, d, entry, stop, first_target(entry, stop, H[:, j], i - 1, p),
                           sh, sh, risk_ps, cost=sh * entry)
+                pos.i_entry = i
                 pos.exits.append((str(d.date()), "entry", round(entry, 4), sh))
                 if same_day_stop:
                     close_part(pos, pos.shares, stop, "stop_same_day", d)
@@ -209,17 +245,30 @@ def run(px, ind, atr, universe, regime: pd.Series, p: Params, cfg: Config, verbo
                     positions.append(pos)
                     held.add(s.ticker)
 
-        # ── 3. margin interest, mark to market ──
+        # ── 3. idle cash in an index ETF (modelled as cash earning the ETF's daily return, 0.05% cost per switch) ──
+        live_ticket = allowed and bool(todays) and len(positions) < cfg.max_positions
+        if cfg.idle != "cash" and cash > 0 and i > 0 and not (cfg.idle_reserve and live_ticket):
+            if not cfg.idle_regime or reg[i - 1] >= 1:
+                k = tick_ix[cfg.idle]
+                cash *= C[i, k] / C[i - 1, k]
+        # ── deposits, margin interest, mark to market ──
+        if cfg.contribution and i > 0 and dates[i].month != dates[i - 1].month:
+            nav_now = (cash + sum(q.shares * (C[i - 1, tick_ix[q.ticker]] if np.isfinite(C[i - 1, tick_ix[q.ticker]])
+                                              else q.entry) for q in positions)) / units
+            cash += cfg.contribution
+            units += cfg.contribution / nav_now
         if cash < 0:
             cash -= -cash * cfg.margin_rate / 252
         mv = sum(q.shares * (C[i, tick_ix[q.ticker]] if np.isfinite(C[i, tick_ix[q.ticker]]) else q.entry)
                  for q in positions)
         equity = cash + mv
-        curve.append((d, equity, len(positions), r_prev))
+        curve.append((d, equity, len(positions), r_prev, equity / units))
 
         # ── 4. weekly scan at week end ──
         if is_we[i] and watch_cache is not None and i in watch_cache:
-            watch, tried = watch_cache[i], set()
+            watch, tried = list(watch_cache[i]), set()
+            if cfg.priority == "score":
+                watch.sort(key=lambda s_: -getattr(s_, "score", 0))
             watch_log.append({"date": d.date(), "setups": [s.ticker for s in watch], "regime": int(reg[i])})
         elif is_we[i]:
             if cfg.selection == "groups":
@@ -232,8 +281,12 @@ def run(px, ind, atr, universe, regime: pd.Series, p: Params, cfg: Config, verbo
                 lead = lead[ok.reindex(lead.index).fillna(False)].nlargest(cfg.rs_only_n, "rs_rating")
             setups = [setup_for(t, i, px, ind, atr, p) for t in lead.index]
             watch = [s for s in setups if s.ready]
+            for s_ in watch:
+                s_.score = setup_score(s_, float(lead.rs_rating.get(s_.ticker, 50)))
             if watch_cache is not None:
-                watch_cache[i] = watch
+                watch_cache[i] = list(watch)
+            if cfg.priority == "score":
+                watch.sort(key=lambda s_: -getattr(s_, "score", 0))
             tried = set()
             watch_log.append({"date": d.date(), "leaders": len(lead), "setups": [s.ticker for s in watch],
                               "regime": int(reg[i])})
@@ -246,12 +299,39 @@ def run(px, ind, atr, universe, regime: pd.Series, p: Params, cfg: Config, verbo
         close_part(pos, pos.shares, C[i1, j], "open_at_end", dates[i1])
         finish(pos, dates[i1])
 
-    curve = pd.DataFrame(curve, columns=["date", "equity", "open", "regime"]).set_index("date")
+    curve = pd.DataFrame(curve, columns=["date", "equity", "open", "regime", "nav"]).set_index("date")
     return {"curve": curve, "trades": pd.DataFrame(trades), "watch": watch_log}
 
 
+def setup_score(s, rs_rating: float) -> float:
+    """Quality ranking used when several setups compete for the same cash: RS, tightness, dry-up, leg volume."""
+    tight = 1 - min(s.tight_pct / max(2 * s.adr, 1e-9), 1)
+    dry = 1 - min(s.dry, 1.5) / 1.5 if np.isfinite(s.dry) else 0
+    leg = min(s.leg_vs_base, 3) / 3 if np.isfinite(s.leg_vs_base) else 0
+    return 2 * rs_rating / 100 + tight + dry + leg
+
+
+def _ep_candidates(i, O, H, L, C, V, V50, in_univ, cols, cfg, ADR=None) -> list:
+    """Episodic-pivot continuation: yesterday gapped ≥ ep_gap on ≥ ep_vol × average volume and closed in the upper
+    half of its range. Today: buy-stop at yesterday's high (all inputs known before today's open)."""
+    from types import SimpleNamespace
+    with np.errstate(invalid="ignore", divide="ignore"):
+        gap = O[i - 1] / C[i - 2] - 1
+        volx = V[i - 1] / V50[i - 2]
+        strong = C[i - 1] >= L[i - 1] + 0.5 * (H[i - 1] - L[i - 1])
+        liquid = (C[i - 1] >= 3) & (V50[i - 2] * C[i - 1] >= 5e6)
+        m = (gap >= cfg.ep_gap) & (volx >= cfg.ep_vol) & strong & liquid & in_univ
+        if ADR is not None and cfg.ep_min_range_adr > 0:
+            rng = 100 * (H[i - 1] - L[i - 1]) / C[i - 1]
+            m &= rng >= cfg.ep_min_range_adr * ADR[i - 2]
+    idx = np.where(m)[0]
+    idx = idx[np.argsort(-volx[idx])][: cfg.ep_max]
+    return [SimpleNamespace(ticker=cols[j], trigger=float(H[i - 1, j]), undercut=float("nan"), is_ep=True)
+            for j in idx]
+
+
 def metrics(res, bench: pd.Series | None = None) -> dict:
-    eq = res["curve"]["equity"]
+    eq = res["curve"]["nav"] if "nav" in res["curve"] else res["curve"]["equity"]
     tr = res["trades"]
     yrs = (eq.index[-1] - eq.index[0]).days / 365.25
     rets = eq.pct_change().dropna()
@@ -279,7 +359,7 @@ def metrics(res, bench: pd.Series | None = None) -> dict:
 
 
 def yearly(res, bench: pd.Series | None = None) -> pd.DataFrame:
-    eq = res["curve"]["equity"]
+    eq = res["curve"]["nav"] if "nav" in res["curve"] else res["curve"]["equity"]
 
     def by_year(s):
         last = s.groupby(s.index.year).last()

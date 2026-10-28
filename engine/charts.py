@@ -60,12 +60,12 @@ def setup_chart(rec: dict, days: int = 110, future: int = 18) -> bytes:
     if k > 0 and np.isfinite(uc):
         x0 = n - 1 - k
         ax.add_patch(plt.Rectangle((x0 - 0.5, uc), k + 1, trig - uc, facecolor=C["base"], alpha=0.08, edgecolor=C["base"], lw=0.8))
-        ax.text(x0, uc, f" base {k}d · {s['depth']:.0f}% deep", color=C["base"], va="top", ha="left", fontsize=8,
+        ax.text(x0, uc, f" base {k}d · {s.get('depth', 0):.0f}% deep", color=C["base"], va="top", ha="left", fontsize=8,
                 bbox=dict(facecolor=C["bg"], edgecolor="none", pad=1))
 
     # levels extended into the future area; labels de-overlapped in a right-hand column
     levels = [(t1, C["target"], "-", "TRIM ¼"), (trig, C["trigger"], "-", "ENTRY"),
-              (ustop, C["stop"], "--", "MAX STOP"), (uc, C["undercut"], ":", "UNDERCUT")]
+              (ustop, C["stop"], "--", "MAX STOP")]
     levels = [lv for lv in levels if lv[0] is not None and np.isfinite(lv[0])]
     lo_ = min([b.l.min()] + [lv[0] for lv in levels]); hi_ = max([b.h.max()] + [lv[0] for lv in levels])
     gap = (hi_ - lo_) * 0.075
@@ -93,7 +93,7 @@ def setup_chart(rec: dict, days: int = 110, future: int = 18) -> bytes:
     notes = [
         ("ENTRY", C["trigger"], "buy-stop above the base high; best on a 5-min break with ≥1.5× volume"),
         ("STOP", C["stop"], "low of the entry day; skip the trade if that low is below MAX STOP"),
-        ("UNDERCUT", C["undercut"], "alternative entry if price dips under the base low and reclaims it"),
+        ("SIZE", C["ink"], "growth mode: the first fill may use the whole account; cash only, idle cash waits in SPY"),
         ("TRIM ¼", C["target"], "at first target, then move the stop to entry"),
         ("EXITS", C["muted"], f"¼ on close < 8 EMA ({_fmt(last.e8)}) · ¼ on close < 21 EMA ({_fmt(last.e21)}) · rest on close < 50 EMA ({_fmt(last.e50)})"),
     ]
@@ -119,9 +119,14 @@ def setup_chart(rec: dict, days: int = 110, future: int = 18) -> bytes:
 
     title = f"{rec['ticker']}  ·  {rec.get('industry', '')}"
     fig.text(0.07, 0.95, title, fontsize=13, fontweight="bold", color=C["ink"])
-    sub = (f"close {_fmt(rec['close'])}   RS {rec.get('rs_rating') or '–'}   ADR {rec.get('adr') or 0:.1f}%   "
-           f"prior run +{s['prior_move']:.0f}%   leg vol {s.get('leg_vs_base', float('nan')):.1f}× · up/down {s.get('ud_ratio', float('nan')):.1f}   "
-           f"last 5d range {s['tight_pct']:.1f}% on {s['dry']:.2f}× avg vol")
+    if rec.get("kind") == "EP":
+        sub = (f"EPISODIC PIVOT · gapped +{rec.get('gap_pct', 0):.0f}% on {rec.get('vol_x', 0):.0f}× average volume · "
+               f"close {_fmt(rec['close'])}   ADR {rec.get('adr') or 0:.1f}%   entry = break of the gap-day high")
+    else:
+        sub = (f"close {_fmt(rec['close'])}   RS {rec.get('rs_rating') or '–'}   ADR {rec.get('adr') or 0:.1f}%   "
+               f"prior run +{s.get('prior_move', float('nan')):.0f}%   leg vol {s.get('leg_vs_base', float('nan')):.1f}× · "
+               f"up/down {s.get('ud_ratio', float('nan')):.1f}   last 5d range {s.get('tight_pct', float('nan')):.1f}% "
+               f"on {s.get('dry', float('nan')):.2f}× avg vol")
     fig.text(0.07, 0.915, sub, fontsize=8.5, color=C["muted"])
     leg = [("8 EMA", C["ema8"]), ("21 EMA", C["ema21"]), ("50 EMA", C["ema50"])]
     for i, (t, c) in enumerate(leg):

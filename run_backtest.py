@@ -12,22 +12,24 @@ from dataclasses import replace
 
 import pandas as pd
 
-from engine.backtest import Config, metrics, run, yearly
+from engine.backtest import GROWTH_CASH, Config, metrics, run, yearly
 from engine.data import DATA, load_prices, load_universe
 from engine.framework import Params, atr_frame, indicators, regime_series
 
 VARIANTS = {
-    # name: (Params overrides, Config overrides). "base" = current defaults (bar-path intraday model).
+    # name: (Params overrides, Config overrides) on top of GROWTH_CASH. "base" = what the weekly report trades.
     "base": ({}, {}),
     "optimistic_entry": ({}, {"entry_mode": "touch_opt"}),
     "worst_case_entry": ({}, {"entry_mode": "touch_worst"}),
-    "close_confirm_entry": ({}, {"entry_mode": "close_conf"}),
+    "idle_cash_not_spy": ({}, {"idle": "cash"}),
+    "idle_qqq": ({}, {"idle": "QQQ"}),
+    "no_episodic_pivots": ({}, {"ep": False}),
+    "with_undercuts": ({}, {"use_undercut": True}),
     "no_volume_profile": ({"volume_profile": False}, {}),
     "no_regime_filter": ({}, {"regime_filter": False}),
-    "no_undercut": ({}, {"use_undercut": False}),
-    "sector_gate_top4": ({"top_sectors": 4}, {}),
     "wide_stops_1adr": ({"max_risk_adr": 1.0, "max_risk_pct": 100.0}, {}),
-    "pos_cap_40": ({}, {"max_pos_pct": 0.40}),
+    "standard_mode_8x25pct": ({}, {"max_positions": 8, "max_pos_pct": 0.25, "risk_pct": 0.02, "ep": False,
+                                   "use_undercut": True, "idle": "cash"}),
 }
 
 
@@ -51,7 +53,7 @@ def main():
     for name in names:
         po, co = VARIANTS[name]
         p = replace(p0, **po)
-        cfg = Config(start=a.start, **co)
+        cfg = Config(**{**GROWTH_CASH, "start": a.start, **co})
         t0 = time.time()
         res = run(px, ind, atr, u, reg, p, cfg)
         m = metrics(res, spy)

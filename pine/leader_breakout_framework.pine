@@ -36,7 +36,11 @@ string GE = "Entries"
 float volMult = input.float(0.0, "Optional: breakout-day volume ≥ x × 50-bar avg (0 = off; close-confirmed entries lost money in testing)", minval = 0, group = GE)
 float maxRiskAdr = input.float(0.5, "Skip if LOD stop distance > x × ADR%", minval = 0.1, group = GE)
 float maxRiskPct = input.float(3.0, "…or > this % (tight risk is where the edge is)", minval = 0.1, group = GE)
-bool showUC = input.bool(true, "Undercut & rally entries", group = GE)
+bool showUC = input.bool(false, "Undercut & rally entries (lost money in growth-mode testing)", group = GE)
+bool useEP = input.bool(true, "Episodic pivots: gap day, then buy-stop above its high next day", group = GE)
+float epGap = input.float(15.0, "EP gap ≥ %", minval = 1, group = GE)
+float epVolX = input.float(5.0, "EP volume ≥ x × 50-bar avg", minval = 1, group = GE)
+float epRangeAdr = input.float(2.0, "EP day range ≥ x × ADR (filters buyouts)", minval = 0, group = GE)
 
 string GX = "Exits"
 string t1Mode = input.string("Resistance", "First trim target", options = ["Resistance", "R multiple"], group = GX)
@@ -125,6 +129,15 @@ float stopBO = close >= open ? low : (lodAtFill < entryBO * 0.9999 ? lodAtFill :
 bool boSig = boRaw and stopBO >= maxStopBO and stopBO < entryBO
 bool boSameDayStop = boSig and close < open and low <= stopBO
 
+// Episodic pivot: big gap on huge volume, strong close, wide range (buyouts gap and pin with a tiny range)
+bool epDay = useEP and open / close[1] - 1 >= epGap / 100 and vol >= epVolX * vol50[1] and close >= low + 0.5 * (high - low) and 100 * (high - low) / close >= epRangeAdr * adr[1] and close >= 3
+float entryEP = math.max(open, high[1])
+float maxStopEP = entryEP * (1 - riskLimit / 100)
+float lodFillEP = close >= open ? low : math.min(open, entryEP)
+float stopEP = close >= open ? low : (lodFillEP < entryEP * 0.9999 ? lodFillEP : maxStopEP)
+bool epSig = epDay[1] and not boSig and high > high[1] and stopEP >= maxStopEP and stopEP < entryEP
+bool epSameDayStop = epSig and close < open and low <= stopEP
+
 bool ucRaw = showUC and setupPrev and low < lowPrev and close > lowPrev and not boRaw
 float riskUC = 100 * (close - low) / close
 bool ucSig = ucRaw and riskUC <= riskLimit
@@ -189,18 +202,18 @@ if inPos
         if legs <= 0
             inPos := false
 
-if not inPos and not evStop and not evExit and regimeOk and (boSig or ucSig)
+if not inPos and not evStop and not evExit and regimeOk and (boSig or epSig or ucSig)
     inPos := true
     evEntry := true
-    ent := boSig ? entryBO : close
-    stp := boSig ? stopBO : low
+    ent := boSig ? entryBO : epSig ? entryEP : close
+    stp := boSig ? stopBO : epSig ? stopEP : low
     tgt := f_target(ent, stp)
     legs := 4
     t1Hit := false
     did8 := false
     did21 := false
-    entType := boSig ? "Breakout" : "Undercut"
-    if boSig and boSameDayStop
+    entType := boSig ? "Breakout" : epSig ? "EP" : "Undercut"
+    if (boSig and boSameDayStop) or (epSig and epSameDayStop)
         inPos := false
         evStop := true
 
@@ -216,8 +229,10 @@ plot(inPos and not t1Hit ? tgt : na, "First target", color = color.green, linewi
 
 plotshape(setup and not setupPrev, title = "Setup formed", style = shape.circle, location = location.abovebar, color = color.new(color.orange, 30), size = size.tiny)
 plotshape(evEntry and entType == "Breakout", title = "Breakout entry", style = shape.triangleup, location = location.belowbar, color = color.green, text = "BO", textcolor = color.green, size = size.small)
+plotshape(evEntry and entType == "EP", title = "Episodic pivot entry", style = shape.triangleup, location = location.belowbar, color = color.orange, text = "EP", textcolor = color.orange, size = size.small)
+plotshape(epDay, title = "EP gap day (watch its high tomorrow)", style = shape.flag, location = location.abovebar, color = color.orange, size = size.tiny)
 plotshape(evEntry and entType == "Undercut", title = "Undercut entry", style = shape.triangleup, location = location.belowbar, color = color.teal, text = "UC", textcolor = color.teal, size = size.small)
-plotshape((boSig or ucSig) and not evEntry, title = "Signal skipped (regime / already in trade)", style = shape.triangleup, location = location.belowbar, color = color.new(color.gray, 40), size = size.tiny)
+plotshape((boSig or epSig or ucSig) and not evEntry, title = "Signal skipped (regime / already in trade)", style = shape.triangleup, location = location.belowbar, color = color.new(color.gray, 40), size = size.tiny)
 plotshape(evT1, title = "Trim 1/4 at first target", style = shape.labeldown, location = location.abovebar, color = color.green, text = "T1", textcolor = color.white, size = size.tiny)
 plotshape(ev8, title = "Trim 1/4: close < fast EMA", style = shape.labeldown, location = location.abovebar, color = color.aqua, text = "8", textcolor = color.black, size = size.tiny)
 plotshape(ev21, title = "Trim 1/4: close < mid EMA", style = shape.labeldown, location = location.abovebar, color = color.fuchsia, text = "21", textcolor = color.white, size = size.tiny)
@@ -274,4 +289,5 @@ alertcondition(evEntry and entType == "Undercut", "Undercut & rally entry", "{{t
 alertcondition(evT1 or ev8 or ev21, "Trim 1/4", "{{ticker}} trim signal")
 alertcondition(evExit or evStop, "Exit / stop", "{{ticker}} exit or stop")
 alertcondition(setup and not setupPrev, "New setup", "{{ticker}} formed a tight base")
+alertcondition(epDay, "EP gap day", "{{ticker}} episodic pivot: buy-stop above today's high tomorrow")
 alertcondition(regime != regime[1], "Regime change", "Market regime changed")
