@@ -120,7 +120,8 @@ def setup_chart(rec: dict, days: int = 110, future: int = 18) -> bytes:
     title = f"{rec['ticker']}  ·  {rec.get('industry', '')}"
     fig.text(0.07, 0.95, title, fontsize=13, fontweight="bold", color=C["ink"])
     sub = (f"close {_fmt(rec['close'])}   RS {rec.get('rs_rating') or '–'}   ADR {rec.get('adr') or 0:.1f}%   "
-           f"prior run +{s['prior_move']:.0f}%   last 5d range {s['tight_pct']:.1f}%   vol {s['dry']:.2f}× avg")
+           f"prior run +{s['prior_move']:.0f}%   leg vol {s.get('leg_vs_base', float('nan')):.1f}× · up/down {s.get('ud_ratio', float('nan')):.1f}   "
+           f"last 5d range {s['tight_pct']:.1f}% on {s['dry']:.2f}× avg vol")
     fig.text(0.07, 0.915, sub, fontsize=8.5, color=C["muted"])
     leg = [("8 EMA", C["ema8"]), ("21 EMA", C["ema21"]), ("50 EMA", C["ema50"])]
     for i, (t, c) in enumerate(leg):

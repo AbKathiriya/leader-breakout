@@ -77,7 +77,7 @@ def _equity_png() -> str | None:
     eq = pd.read_csv(p, index_col=0, parse_dates=True)["equity"]
     spy = pd.read_parquet(DATA / "prices.parquet")["Close"]["SPY"].reindex(eq.index).ffill()
     fig, ax = plt.subplots(figsize=(10, 3.4), dpi=130)
-    ax.plot(eq.index, eq / eq.iloc[0] * 100, color="#d97a06", lw=1.8, label="Strategy (pessimistic entries)")
+    ax.plot(eq.index, eq / eq.iloc[0] * 100, color="#d97a06", lw=1.8, label="Strategy (bar-path entry model)")
     ax.plot(spy.index, spy / spy.iloc[0] * 100, color="#7d8984", lw=1.2, label="SPY buy & hold")
     ax.set_yscale("log")
     ax.grid(axis="y", color="#e6eae7", lw=0.6)

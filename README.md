@@ -22,7 +22,8 @@ This is a rules-based swing system from the SRxTrades guide "How to make money i
    - Depth is ≤ max(25%, 3×ADR), capped at 40%.
    - The stock rose ≥ 25% into the high within the prior 60 bars.
    - The last 5 bars' range is ≤ 2×ADR.
-   - The last 5 days' volume is ≤ the 50-day average.
+   - The last 5 days' volume is ≤ the 50-day average (volume dries up in the base).
+   - The leg up into the high ran on heavy volume: its average volume is ≥ 1.2× the 50 days before the leg, and up-day volume is ≥ 1.2× down-day volume during the leg. This cut trades by two-thirds but tripled the average R per trade (profit factor 1.9 → 3.3).
    - Close > 21 EMA > 50 EMA.
 5. **Entry.**
    - Breakout: buy-stop at the base high.
@@ -59,19 +60,19 @@ Run `python run_backtest.py`; `data/bt_summary.json` holds every variant. Daily 
 
 | Variant | CAGR | Max DD | Sharpe | Trades | Profit factor |
 |---|---|---|---|---|---|
-| **Current rules (bar-path model)** | **8.0%** | **−16.5%** | **0.76** | 452 | 1.93 |
-| Optimistic intraday entry | 9.7% | −15.3% | 0.91 | 317 | 2.37 |
-| Worst-case intraday entry | −15.3% | −86.8% | −1.41 | 888 | 0.50 |
-| Enter at the close on volume | −0.2% | −18.7% | −0.01 | 160 | 0.95 |
-| No market-regime filter | 7.7% | −18.5% | 0.71 | 506 | 1.75 |
-| Breakouts only (no undercuts) | 7.8% | −12.3% | 0.84 | 334 | 2.47 |
-| Gate on top 4 sectors | 2.7% | −21.7% | 0.32 | 458 | 1.27 |
-| Article scope (4 sectors, 8 industries × 3) | 2.7% | −16.0% | 0.41 | 184 | 1.69 |
-| Stops up to 1 ADR | 9.0% | −35.7% | 0.58 | 828 | 1.38 |
-| Position cap 40% | 11.3% | −23.4% | 0.77 | 428 | 1.90 |
+| **Current rules (bar-path model)** | **6.9%** | **−15.8%** | **0.85** | 155 | 3.25 |
+| Optimistic intraday entry | 7.5% | −14.2% | 0.91 | 111 | 3.97 |
+| Worst-case intraday entry | −1.6% | −42.1% | −0.15 | 300 | 0.85 |
+| Enter at the close on volume | 1.0% | −14.4% | 0.26 | 50 | 1.81 |
+| No volume-profile check (heavy leg up) | 8.0% | −16.5% | 0.76 | 452 | 1.93 |
+| No market-regime filter | 6.3% | −18.0% | 0.77 | 175 | 2.61 |
+| Breakouts only (no undercuts) | 5.7% | −9.6% | 0.80 | 112 | 3.79 |
+| Gate on top 4 sectors | 4.5% | −13.4% | 0.60 | 156 | 2.46 |
+| Stops up to 1 ADR | 4.9% | −33.8% | 0.43 | 310 | 1.38 |
+| Position cap 40% | 10.6% | −22.4% | 0.86 | 154 | 3.12 |
 | SPY buy and hold | 13.7% | −33.7% | | | |
 
-The edge rests on entering intraday at the trigger with a low-of-day stop. Entering at the close instead loses money, and allowing wide stops doubles the drawdown. Results are very sensitive to how failed intraday breakouts play out (see the worst case), so execution discipline is the strategy: skip if the low is already below the max stop, and honour the stop immediately. Over this period the strategy does not beat SPY's return, though its drawdowns are smaller. Survivorship bias (today's listings only) means real results would be lower.
+The edge rests on entering intraday at the trigger with a low-of-day stop. Entering at the close instead earns almost nothing, and allowing wide stops doubles the drawdown. Requiring a heavy-volume leg up cuts trades by two-thirds but makes the strategy far less sensitive to how entry days play out (worst case −1.6% CAGR instead of −15%). Results are very sensitive to how failed intraday breakouts play out (see the worst case), so execution discipline is the strategy: skip if the low is already below the max stop, and honour the stop immediately. Over this period the strategy does not beat SPY's return, though its drawdowns are smaller. Survivorship bias (today's listings only) means real results would be lower.
 
 ## Weekly (Sunday) run
 

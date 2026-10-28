@@ -37,6 +37,9 @@ class Params:
     tight_len: int = 5
     tight_mult: float = 2.0
     dry_max: float = 1.0             # last tight_len days avg volume ≤ x × 50-day avg
+    volume_profile: bool = True      # also require a heavy-volume leg up and accumulation
+    leg_vs_base_min: float = 1.2     # avg volume on the leg up ≥ x × avg volume of the 50 days before it
+    ud_ratio_min: float = 1.2        # during the leg: up-day volume ÷ down-day volume ≥ x
     # entries
     vol_mult: float = 1.5
     max_risk_adr: float = 0.5        # skip if LOD stop is further than this × ADR …
@@ -156,6 +159,8 @@ class Setup:
     t1: float = float("nan")
     rr_at_max_stop: float = float("nan")
     ext_atr: float = float("nan")
+    leg_vs_base: float = float("nan")  # leg-up avg volume ÷ avg volume of the 50 days before the leg
+    ud_ratio: float = float("nan")     # leg up-day volume ÷ down-day volume
 
     def to_dict(self):
         return asdict(self)
@@ -197,7 +202,9 @@ def detect_setup(ticker: str, o, h, l, c, v, e2, e3, e1, adr, vol50, atr, t: int
     pivot = h[t - k]
     base_low = np.nanmin(l[t - k: t + 1])
     depth = 100 * (pivot - base_low) / pivot
-    prior_low = np.nanmin(l[t - k - p.prior_look: t - k + 1])
+    seg = l[t - k - p.prior_look: t - k + 1]
+    prior_low = np.nanmin(seg)
+    i_low = t - k - p.prior_look + int(np.nanargmin(seg))
     prior = 100 * (pivot / prior_low - 1)
     tight = 100 * (np.nanmax(h[t - p.tight_len + 1: t + 1]) - np.nanmin(l[t - p.tight_len + 1: t + 1])) / c[t]
     dry = np.nanmean(v[t - p.tight_len + 1: t + 1]) / vol50[t] if vol50[t] > 0 else np.nan
@@ -210,6 +217,19 @@ def detect_setup(ticker: str, o, h, l, c, v, e2, e3, e1, adr, vol50, atr, t: int
         "tight": bool(tight <= p.tight_mult * a),
         "volume_dry": bool(np.isfinite(dry) and dry <= p.dry_max),
     }
+    if p.volume_profile:
+        # Leg up (prior low → base high) should run on expanding volume versus the 50 days before it started,
+        # with up-day volume outweighing down-day volume during the leg. The base's dry-up is checked above.
+        leg = slice(i_low, t - k + 1)
+        pre = v[max(i_low - 50, 0): i_low]
+        leg_vol = np.nanmean(v[leg])
+        base_line = np.nanmean(pre) if len(pre) >= 20 else np.nan
+        chg = c[leg] - c[i_low - 1: t - k]
+        upv, dnv = np.nansum(v[leg][chg > 0]), np.nansum(v[leg][chg < 0])
+        s.leg_vs_base = float(leg_vol / base_line) if base_line and base_line > 0 else float("nan")
+        s.ud_ratio = float(upv / dnv) if dnv > 0 else float("inf")
+        checks["volume_leg_heavy"] = bool(np.isfinite(s.leg_vs_base) and s.leg_vs_base >= p.leg_vs_base_min)
+        checks["accumulation"] = bool(s.ud_ratio >= p.ud_ratio_min)
     s.checks = checks
     s.ready = all(checks.values())
     s.trigger, s.undercut, s.base_len = float(pivot), float(base_low), int(k)

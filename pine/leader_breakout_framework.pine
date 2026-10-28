@@ -28,6 +28,9 @@ float priorMove = input.float(25.0, "Min prior move into base %", minval = 0, gr
 int tightLen = input.int(5, "Tightness window (bars)", minval = 2, group = GB)
 float tightMult = input.float(2.0, "Tight if window range ≤ x × ADR%", minval = 0.1, group = GB)
 float dryMax = input.float(1.0, "Volume dry-up: tightness-window avg vol ≤ x × 50-bar avg", minval = 0.1, group = GB)
+bool useVolProfile = input.bool(true, "Require heavy-volume leg up (accumulation)", group = GB)
+float legVolMin = input.float(1.2, "Leg-up avg volume ≥ x × 50 bars before the leg", minval = 0.1, group = GB)
+float legUdMin = input.float(1.2, "Leg-up up-day ÷ down-day volume ≥ x", minval = 0.1, group = GB)
 
 string GE = "Entries"
 float volMult = input.float(0.0, "Optional: breakout-day volume ≥ x × 50-bar avg (0 = off; close-confirmed entries lost money in testing)", minval = 0, group = GE)
@@ -72,9 +75,28 @@ for i = 0 to k
 float depth = 100 * (pivot - bLow) / pivot
 
 float priorLow = low[k]
+int jLow = k
 for j = k to k + priorLook
-    priorLow := math.min(priorLow, low[j])
+    if low[j] < priorLow
+        priorLow := low[j]
+        jLow := j
 float prior = 100 * (pivot / priorLow - 1)
+
+// Volume profile of the leg up (jLow → k bars ago): expanding volume and up-day volume dominating
+float legVolSum = 0.0
+float upVol = 0.0
+float dnVol = 0.0
+for i = k to jLow
+    legVolSum += vol[i]
+    if close[i] > close[i + 1]
+        upVol += vol[i]
+    else if close[i] < close[i + 1]
+        dnVol += vol[i]
+float legVol = legVolSum / (jLow - k + 1)
+float preLegVol = vol50[jLow + 1]
+float legRatio = preLegVol > 0 ? legVol / preLegVol : na
+float legUd = dnVol > 0 ? upVol / dnVol : 99.0
+bool volLegOk = not useVolProfile or (not na(legRatio) and legRatio >= legVolMin and legUd >= legUdMin)
 
 float tightRng = 100 * (ta.highest(high, tightLen) - ta.lowest(low, tightLen)) / close
 bool isTight = tightRng <= tightMult * adr
@@ -84,7 +106,7 @@ bool isDry = not na(dry) and dry <= dryMax
 bool trendOk = close > e2 and close > e3 and e2 > e3
 float depthLimit = math.min(depthCap, math.max(maxDepth, depthAdr * adr))
 bool baseOk = k >= minBase and depth <= depthLimit and prior >= priorMove
-bool setup = baseOk and trendOk and isTight and isDry
+bool setup = baseOk and trendOk and isTight and isDry and volLegOk
 
 // ───────────────────────── Entry signals ─────────────────────────
 bool setupPrev = setup[1]
@@ -215,7 +237,7 @@ if barstate.islast
 f_pos(string s) =>
     s == "Top right" ? position.top_right : s == "Bottom right" ? position.bottom_right : s == "Top left" ? position.top_left : position.bottom_left
 
-var table tb = table.new(f_pos(tPos), 2, 14, border_width = 1, frame_color = color.gray, frame_width = 1)
+var table tb = table.new(f_pos(tPos), 2, 15, border_width = 1, frame_color = color.gray, frame_width = 1)
 
 f_row(int r, string key, string val, color c) =>
     table.cell(tb, 0, r, key, text_color = color.white, bgcolor = color.new(color.black, 20), text_size = size.small, text_halign = text.align_left)
@@ -236,6 +258,7 @@ if showTable and barstate.islast
     f_row(5, "Base", str.tostring(k) + " bars · " + str.tostring(depth, "#.0") + "% deep", baseOk ? good : bad)
     f_row(6, "Tightness (" + str.tostring(tightLen) + " bars)", str.tostring(tightRng, "#.0") + "% (limit " + str.tostring(tightMult * adr, "#.0") + "%)", isTight ? good : bad)
     f_row(7, "Volume in base", na(dry) ? "n/a" : str.tostring(dry, "#.00") + "× 50-bar avg", isDry ? good : bad)
+    f_row(14, "Volume on leg up", na(legRatio) ? "n/a" : str.tostring(legRatio, "#.00") + "× prior · U/D " + str.tostring(legUd, "#.0"), volLegOk ? good : bad)
     f_row(8, "Setup", setup ? "READY" : "No", setup ? good : neu)
     f_row(9, "Trigger / undercut level", setup ? str.tostring(pivot, format.mintick) + " / " + str.tostring(bLow, format.mintick) : "-", neu)
     f_row(10, "Extension from fast EMA", str.tostring((close - e1) / atr, "#.0") + " ATR", close - e1 >= extMult * atr ? bad : neu)
