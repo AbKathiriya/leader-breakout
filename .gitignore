@@ -1,0 +1,7 @@
+__pycache__/
+data/prices*.parquet
+data/*_full.json
+data/download.log
+data/bt_trades.csv
+data/bt_curve.csv
+report*.html

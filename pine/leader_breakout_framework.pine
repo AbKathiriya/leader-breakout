@@ -1,0 +1,244 @@
+//@version=6
+// Leader Breakout Framework
+// Trend filter (index vs 8/21/50 EMA) → tight base after a prior move → breakout or undercut-and-rally
+// entry with a low-of-day stop → trim 1/4 at first target, then 1/4 on closes below 8 / 21 EMA, rest below 50 EMA.
+// Signals are evaluated on bar close. Use the "Price through trigger" alert for the intraday entry.
+indicator("Leader Breakout Framework", shorttitle = "LBF", overlay = true, max_bars_back = 600, max_boxes_count = 20, max_labels_count = 300)
+
+// ───────────────────────── Inputs ─────────────────────────
+string GT = "Trend EMAs"
+int e1Len = input.int(8, "Fast EMA", minval = 1, group = GT)
+int e2Len = input.int(21, "Mid EMA", minval = 1, group = GT)
+int e3Len = input.int(50, "Slow EMA", minval = 1, group = GT)
+
+string GR = "Market regime"
+string idx1 = input.symbol("AMEX:SPY", "Index 1", group = GR)
+string idx2 = input.symbol("NASDAQ:QQQ", "Index 2", group = GR)
+bool regimeBg = input.bool(true, "Tint background by regime", group = GR)
+bool needRegime = input.bool(true, "Only open positions when regime is not Risk-off", group = GR)
+
+string GB = "Base / setup"
+int minBase = input.int(5, "Min bars since base high", minval = 2, group = GB)
+int maxBase = input.int(40, "Max base length", minval = 5, maxval = 150, group = GB)
+float maxDepth = input.float(25.0, "Max base depth % (floor)", minval = 1, group = GB)
+float depthAdr = input.float(3.0, "…or up to x × ADR% for volatile names", minval = 0, group = GB)
+float depthCap = input.float(40.0, "Max base depth % (hard cap)", minval = 1, group = GB)
+int priorLook = input.int(60, "Prior-move lookback (bars before base)", minval = 5, maxval = 250, group = GB)
+float priorMove = input.float(25.0, "Min prior move into base %", minval = 0, group = GB)
+int tightLen = input.int(5, "Tightness window (bars)", minval = 2, group = GB)
+float tightMult = input.float(2.0, "Tight if window range ≤ x × ADR%", minval = 0.1, group = GB)
+float dryMax = input.float(1.0, "Volume dry-up: tightness-window avg vol ≤ x × 50-bar avg", minval = 0.1, group = GB)
+
+string GE = "Entries"
+float volMult = input.float(1.5, "Breakout volume ≥ x × 50-bar avg", minval = 0, group = GE)
+float maxRiskAdr = input.float(1.0, "Skip if LOD stop distance > x × ADR%", minval = 0.1, group = GE)
+bool showUC = input.bool(true, "Undercut & rally entries", group = GE)
+
+string GX = "Exits"
+string t1Mode = input.string("Resistance", "First trim target", options = ["Resistance", "R multiple"], group = GX)
+float t1R = input.float(3.0, "R multiple (mode, or fallback when no resistance overhead)", minval = 0.5, group = GX)
+bool exit50Early = input.bool(true, "Exit on close < slow EMA even before first trim", group = GX)
+float extMult = input.float(3.0, "Extension flag: close − fast EMA ≥ x × ATR", minval = 0.5, group = GX)
+
+string GD = "Display"
+bool showTable = input.bool(true, "Info table", group = GD)
+string tPos = input.string("Top right", "Table position", options = ["Top right", "Bottom right", "Top left", "Bottom left"], group = GD)
+
+// ───────────────────────── Core series ─────────────────────────
+float e1 = ta.ema(close, e1Len)
+float e2 = ta.ema(close, e2Len)
+float e3 = ta.ema(close, e3Len)
+float atr = ta.atr(14)
+float adr = 100 * (ta.sma(high / low, 20) - 1)
+float vol = nz(volume)
+float vol50 = ta.sma(vol, 50)
+
+// ───────────────────────── Market regime ─────────────────────────
+[i1c, i1a, i1b, i1d] = request.security(idx1, timeframe.period, [close, ta.ema(close, e1Len), ta.ema(close, e2Len), ta.ema(close, e3Len)])
+[i2c, i2a, i2b, i2d] = request.security(idx2, timeframe.period, [close, ta.ema(close, e1Len), ta.ema(close, e2Len), ta.ema(close, e3Len)])
+int rScore = (i1c > i1a ? 1 : 0) + (i1c > i1b ? 1 : 0) + (i1c > i1d ? 1 : 0) + (i2c > i2a ? 1 : 0) + (i2c > i2b ? 1 : 0) + (i2c > i2d ? 1 : 0)
+int regime = rScore == 6 ? 2 : (i1c > i1d and i2c > i2d) ? 1 : 0
+string regimeTxt = regime == 2 ? "RISK-ON · full size" : regime == 1 ? "CAUTION · half size" : "RISK-OFF · no new longs"
+color regimeCol = regime == 2 ? color.green : regime == 1 ? color.orange : color.red
+
+// ───────────────────────── Base detection ─────────────────────────
+// Base = bars since the highest high of the last `maxBase` bars (move ended → rest).
+int k = nz(-ta.highestbars(high, maxBase), 0)
+float pivot = high[k]
+float bLow = low
+for i = 0 to k
+    bLow := math.min(bLow, low[i])
+float depth = 100 * (pivot - bLow) / pivot
+
+float priorLow = low[k]
+for j = k to k + priorLook
+    priorLow := math.min(priorLow, low[j])
+float prior = 100 * (pivot / priorLow - 1)
+
+float tightRng = 100 * (ta.highest(high, tightLen) - ta.lowest(low, tightLen)) / close
+bool isTight = tightRng <= tightMult * adr
+float volT = ta.sma(vol, tightLen)
+float dry = vol50 > 0 ? volT / vol50 : na
+bool isDry = not na(dry) and dry <= dryMax
+bool trendOk = close > e2 and close > e3 and e2 > e3
+float depthLimit = math.min(depthCap, math.max(maxDepth, depthAdr * adr))
+bool baseOk = k >= minBase and depth <= depthLimit and prior >= priorMove
+bool setup = baseOk and trendOk and isTight and isDry
+
+// ───────────────────────── Entry signals ─────────────────────────
+bool setupPrev = setup[1]
+float pivPrev = pivot[1]
+float lowPrev = bLow[1]
+bool xTrig = ta.crossover(high, pivPrev)
+
+float entryBO = math.max(open, pivPrev)
+bool boRaw = setupPrev and high > pivPrev and close > pivPrev and vol >= volMult * vol50
+float riskBO = 100 * (entryBO - low) / entryBO
+bool boSig = boRaw and riskBO <= maxRiskAdr * adr
+
+bool ucRaw = showUC and setupPrev and low < lowPrev and close > lowPrev and not boRaw
+float riskUC = 100 * (close - low) / close
+bool ucSig = ucRaw and riskUC <= maxRiskAdr * adr
+bool regimeOk = not needRegime or regime >= 1
+
+// ───────────────────────── Resistance levels for first target ─────────────────────────
+var array<float> swings = array.new<float>()
+float ph = ta.pivothigh(high, 5, 5)
+if not na(ph)
+    array.push(swings, ph)
+    if array.size(swings) > 80
+        array.shift(swings)
+
+f_target(float ent, float stp) =>
+    float r = ent - stp
+    float best = na
+    if t1Mode == "Resistance"
+        for lvl in swings
+            if lvl > ent + r and (na(best) or lvl < best)
+                best := lvl
+    na(best) ? ent + t1R * r : best
+
+// ───────────────────────── Position state machine ─────────────────────────
+var bool inPos = false
+var float ent = na
+var float stp = na
+var float tgt = na
+var int legs = 0
+var bool t1Hit = false
+var bool did8 = false
+var bool did21 = false
+var string entType = ""
+
+bool evStop = false
+bool evT1 = false
+bool ev8 = false
+bool ev21 = false
+bool evExit = false
+bool evEntry = false
+
+if inPos
+    if low <= stp
+        evStop := true
+        inPos := false
+    else
+        if not t1Hit and high >= tgt
+            t1Hit := true
+            evT1 := true
+            legs -= 1
+            stp := ent
+        if t1Hit and not did8 and close < e1
+            did8 := true
+            ev8 := true
+            legs -= 1
+        if t1Hit and not did21 and close < e2
+            did21 := true
+            ev21 := true
+            legs -= 1
+        if close < e3 and (t1Hit or exit50Early)
+            evExit := true
+            inPos := false
+        if legs <= 0
+            inPos := false
+
+if not inPos and not evStop and not evExit and regimeOk and (boSig or ucSig)
+    inPos := true
+    evEntry := true
+    ent := boSig ? entryBO : close
+    stp := low
+    tgt := f_target(ent, stp)
+    legs := 4
+    t1Hit := false
+    did8 := false
+    did21 := false
+    entType := boSig ? "Breakout" : "Undercut"
+
+// ───────────────────────── Plots ─────────────────────────
+bgcolor(regimeBg ? color.new(regimeCol, 90) : na, title = "Regime")
+plot(e1, "EMA fast", color = color.aqua, linewidth = 1)
+plot(e2, "EMA mid", color = color.fuchsia, linewidth = 1)
+plot(e3, "EMA slow", color = color.gray, linewidth = 2)
+plot(setup ? pivot : na, "Trigger (base high)", color = color.orange, linewidth = 2, style = plot.style_linebr)
+plot(setup ? bLow : na, "Undercut level (base low)", color = color.purple, linewidth = 1, style = plot.style_linebr)
+plot(inPos ? stp : na, "Stop", color = color.red, linewidth = 2, style = plot.style_linebr)
+plot(inPos and not t1Hit ? tgt : na, "First target", color = color.green, linewidth = 2, style = plot.style_linebr)
+
+plotshape(setup and not setupPrev, title = "Setup formed", style = shape.circle, location = location.abovebar, color = color.new(color.orange, 30), size = size.tiny)
+plotshape(evEntry and entType == "Breakout", title = "Breakout entry", style = shape.triangleup, location = location.belowbar, color = color.green, text = "BO", textcolor = color.green, size = size.small)
+plotshape(evEntry and entType == "Undercut", title = "Undercut entry", style = shape.triangleup, location = location.belowbar, color = color.teal, text = "UC", textcolor = color.teal, size = size.small)
+plotshape((boSig or ucSig) and not evEntry, title = "Signal skipped (regime / already in trade)", style = shape.triangleup, location = location.belowbar, color = color.new(color.gray, 40), size = size.tiny)
+plotshape(evT1, title = "Trim 1/4 at first target", style = shape.labeldown, location = location.abovebar, color = color.green, text = "T1", textcolor = color.white, size = size.tiny)
+plotshape(ev8, title = "Trim 1/4: close < fast EMA", style = shape.labeldown, location = location.abovebar, color = color.aqua, text = "8", textcolor = color.black, size = size.tiny)
+plotshape(ev21, title = "Trim 1/4: close < mid EMA", style = shape.labeldown, location = location.abovebar, color = color.fuchsia, text = "21", textcolor = color.white, size = size.tiny)
+plotshape(evExit, title = "Exit rest: close < slow EMA", style = shape.xcross, location = location.abovebar, color = color.gray, text = "50", textcolor = color.gray, size = size.small)
+plotshape(evStop, title = "Stopped out", style = shape.xcross, location = location.belowbar, color = color.red, text = "SL", textcolor = color.red, size = size.small)
+plotshape(close - e1 >= extMult * atr, title = "Extended from fast EMA", style = shape.diamond, location = location.abovebar, color = color.new(color.orange, 30), size = size.tiny)
+
+// Current base box
+var box bx = na
+if barstate.islast
+    box.delete(bx)
+    bx := na
+    if setup
+        bx := box.new(bar_index - k, pivot, bar_index, bLow, border_color = color.orange, bgcolor = color.new(color.orange, 88))
+
+// ───────────────────────── Info table ─────────────────────────
+f_pos(string s) =>
+    s == "Top right" ? position.top_right : s == "Bottom right" ? position.bottom_right : s == "Top left" ? position.top_left : position.bottom_left
+
+var table tb = table.new(f_pos(tPos), 2, 14, border_width = 1, frame_color = color.gray, frame_width = 1)
+
+f_row(int r, string key, string val, color c) =>
+    table.cell(tb, 0, r, key, text_color = color.white, bgcolor = color.new(color.black, 20), text_size = size.small, text_halign = text.align_left)
+    table.cell(tb, 1, r, val, text_color = color.white, bgcolor = c, text_size = size.small, text_halign = text.align_left)
+
+float rs63 = 100 * ((close / close[63]) / (i1c / i1c[63]) - 1)
+
+if showTable and barstate.islast
+    color good = color.new(color.green, 40)
+    color bad = color.new(color.red, 40)
+    color neu = color.new(color.gray, 40)
+    bool above3 = close > e1 and close > e2 and close > e3
+    f_row(0, "Market", regimeTxt, color.new(regimeCol, 40))
+    f_row(1, "Trend", above3 ? "Above 8/21/50" : close > e3 ? "Above slow, below fast/mid" : "Below slow EMA", above3 ? good : close > e3 ? neu : bad)
+    f_row(2, "ADR% (20)", str.tostring(adr, "#.0") + "%", adr >= 2 ? good : bad)
+    f_row(3, "RS vs index 1 (63 bars)", (rs63 >= 0 ? "+" : "") + str.tostring(rs63, "#.0") + "%", rs63 > 0 ? good : bad)
+    f_row(4, "Prior move into base", str.tostring(prior, "#") + "%", prior >= priorMove ? good : bad)
+    f_row(5, "Base", str.tostring(k) + " bars · " + str.tostring(depth, "#.0") + "% deep", baseOk ? good : bad)
+    f_row(6, "Tightness (" + str.tostring(tightLen) + " bars)", str.tostring(tightRng, "#.0") + "% (limit " + str.tostring(tightMult * adr, "#.0") + "%)", isTight ? good : bad)
+    f_row(7, "Volume in base", na(dry) ? "n/a" : str.tostring(dry, "#.00") + "× 50-bar avg", isDry ? good : bad)
+    f_row(8, "Setup", setup ? "READY" : "No", setup ? good : neu)
+    f_row(9, "Trigger / undercut level", setup ? str.tostring(pivot, format.mintick) + " / " + str.tostring(bLow, format.mintick) : "-", neu)
+    f_row(10, "Extension from fast EMA", str.tostring((close - e1) / atr, "#.0") + " ATR", close - e1 >= extMult * atr ? bad : neu)
+    f_row(11, "Position", inPos ? entType + " @ " + str.tostring(ent, format.mintick) + " · " + str.tostring(legs) + "/4 left" : "Flat", inPos ? good : neu)
+    f_row(12, "Stop / first target", inPos ? str.tostring(stp, format.mintick) + " / " + (t1Hit ? "hit" : str.tostring(tgt, format.mintick)) : "-", neu)
+    float rr = inPos and not t1Hit and ent > stp ? (tgt - ent) / (ent - stp) : na
+    f_row(13, "Reward:risk to target", na(rr) ? "-" : str.tostring(rr, "#.0") + "R", neu)
+
+// ───────────────────────── Alerts ─────────────────────────
+alertcondition(setupPrev and xTrig, "Price through trigger (intraday)", "{{ticker}} traded through its base trigger")
+alertcondition(evEntry and entType == "Breakout", "Breakout entry (on close)", "{{ticker}} breakout entry, close {{close}}")
+alertcondition(evEntry and entType == "Undercut", "Undercut & rally entry", "{{ticker}} undercut and rally entry, close {{close}}")
+alertcondition(evT1 or ev8 or ev21, "Trim 1/4", "{{ticker}} trim signal")
+alertcondition(evExit or evStop, "Exit / stop", "{{ticker}} exit or stop")
+alertcondition(setup and not setupPrev, "New setup", "{{ticker}} formed a tight base")
+alertcondition(regime != regime[1], "Regime change", "Market regime changed")
