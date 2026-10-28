@@ -19,3 +19,5 @@ Downloading 79 tickers from 2013-01-01
 {"name": "ETFs only (plain+lev)  15-20", "CAGR %": 14.75, "Max drawdown %": -33.86, "Sharpe": 0.61, "Trades": 32, "Avg R": 5.99, "Profit factor": 1.85}
 {"name": "ETFs only (plain+lev)  21-26", "CAGR %": 32.66, "Max drawdown %": -30.53, "Sharpe": 1.0, "Trades": 100, "Avg R": 3.78, "Profit factor": 5.65}
 {"name": "ETFs only (plain, ADR>=1%)", "CAGR %": 23.25, "Max drawdown %": -33.86, "Sharpe": 0.82, "Trades": 133, "Avg R": 4.26, "Profit factor": 4.82, "etf_trades": 8, "etf_avgR": 0.57, "etf_tickers": ["ARKK", "GDXJ", "SOXX", "URA", "XRT"]}
+{"name": "ETFs only (plain, ADR>=1%)  15-20", "CAGR %": 15.47, "Max drawdown %": -33.86, "Sharpe": 0.63, "Trades": 32, "Avg R": 5.96, "Profit factor": 1.82}
+{"name": "ETFs only (plain, ADR>=1%)  21-26", "CAGR %": 32.14, "Max drawdown %": -30.08, "Sharpe": 0.99, "Trades": 101, "Avg R": 3.72, "Profit factor": 5.61}
