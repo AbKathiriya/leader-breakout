@@ -25,7 +25,7 @@ Lead with the market. If `regime == 0`, say no new longs this week whatever the 
 |---|---|
 | **TRADE** | `setup.ready`, all `leader_filters` true except `above_8` (which may be false inside a base), `rs_rating ≥ 70`, regime ≥ 1, and `ext_atr < 3` |
 | **WATCH** | Leader filters pass and 1–2 setup checks fail. Say exactly what would complete it: "needs 2–3 more quiet days" (tight), "volume still heavy" (volume_dry), "only N days since the high" (base_length). Failing `volume_leg_heavy` or `accumulation` means the leg up lacked institutional volume (`leg_vs_base` is leg volume vs the 50 days before it, `ud_ratio` is up/down volume in the leg), which is a weaker candidate, so say so |
-| **AVOID** | Trend fails (below 21/50 EMA, or 21 below 50), ADR < 2%, 10-day volume < 500k, `rs_rating < 50`, depth fails badly, or extended more than 3 ATR above the 8 EMA (don't chase) |
+| **AVOID** | Trend fails (below 21/50 EMA, or 21 below 50), more than 15% below the 52-week high (`near_52w_high` false), ADR < 2%, 10-day volume < 500k, `rs_rating < 50`, depth fails badly, or extended more than 3 ATR above the 8 EMA (don't chase) |
 
 Group context sharpens the call. A stock in a top-10 industry with RS ≥ 80 is the article's ideal. A ready base in a bottom-half industry is a lower-quality trade, so say so.
 
@@ -53,7 +53,7 @@ Group context sharpens the call. A stock in a top-10 industry with RS ≥ 80 is 
 Pull 1 year of daily bars for the tickers plus SPY and QQQ with Robinhood `get_equity_historicals` (interval `day`, 10 symbols per call). Write them to CSV and compute the rules in Python:
 
 - **Regime:** risk-on if SPY and QQQ both close above their 8/21/50 EMAs. Caution if both are above the 50 but not all three. Otherwise risk-off.
-- **Leader:** price > 3, 10-day average volume > 500k, ADR% (20-day mean of high/low − 1) > 2, and close above the 21 and 50 EMAs.
+- **Leader:** price > 3, 10-day average volume > 500k, ADR% (20-day mean of high/low − 1) > 2, close above the 21 and 50 EMAs, and close ≥ 85% of the 52-week high.
 - **Base:** k = bars since the highest high of the last 40 bars, with k ≥ 5. Depth = (that high − lowest low since) ÷ high ≤ min(40%, max(25%, 3×ADR)). The prior move from the lowest low of the 60 bars before the high must be ≥ 25%. The last 5 bars' range must be ≤ 2×ADR% of the close. The last 5 bars' average volume must be ≤ the 50-day average. The leg from that low to the high must average ≥ 1.2× the volume of the 50 days before it, with up-day volume ≥ 1.2× down-day volume during the leg. Trend: close > 21 EMA > 50 EMA.
 - **Levels:** trigger = base high, undercut = base low, max stop = trigger × (1 − min(½·ADR%, 3%)), t1 as in section 3.
 

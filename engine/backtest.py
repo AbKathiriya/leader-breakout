@@ -52,6 +52,9 @@ class Config:
     ep_vol: float = 3.0
     ep_max: int = 10
     ep_min_range_adr: float = 2.0
+    pocket_pivot: bool = False          # O'Neil/Morales early entry inside the base: up close on volume > any down day of last 10
+    ep_min_price: float = 3.0           # Stockbee EP scans use ≥ $5
+    ep_max_prior: float = 99.0          # Qullamaggie: prefer "neglected" stocks — max 60-day return before the gap
     idle: str = "cash"                  # cash | SPY | QQQ — where uninvested cash sits (sold to fund entries)
     idle_regime: bool = True            # only hold the idle ETF when the regime is not risk-off
     idle_reserve: bool = False          # realistic: hold cash (not the ETF) on days with a live ticket to fund       # gap-day range ≥ x × prior ADR (buyouts gap and then pin, range ≈ 0.1–0.2× ADR)
@@ -220,6 +223,9 @@ def run(px, ind, atr, universe, regime: pd.Series, p: Params, cfg: Config, verbo
                         same_day_stop = cfg.entry_mode == "touch_pess" and c < entry
                 elif cfg.entry_mode == "close_conf" and c > s.trigger and v >= p.vol_mult * V50[i - 1, j]:
                     entry, stop, kind = c * (1 + slip), l, "breakout"
+                elif (cfg.pocket_pivot and not getattr(s, "is_ep", False) and c > C[i - 1, j] and c < s.trigger
+                      and v > np.nanmax(np.where(C[i - 10:i, j] < C[i - 11:i - 1, j], V[i - 10:i, j], 0))):
+                    entry, stop, kind = c * (1 + slip), l, "pocket_pivot"
                 elif cfg.use_undercut and l < s.undercut and c > s.undercut:
                     entry, stop, kind = c * (1 + slip), l, "undercut"
                 if kind is None:
@@ -319,8 +325,10 @@ def _ep_candidates(i, O, H, L, C, V, V50, in_univ, cols, cfg, ADR=None) -> list:
         gap = O[i - 1] / C[i - 2] - 1
         volx = V[i - 1] / V50[i - 2]
         strong = C[i - 1] >= L[i - 1] + 0.5 * (H[i - 1] - L[i - 1])
-        liquid = (C[i - 1] >= 3) & (V50[i - 2] * C[i - 1] >= 5e6)
+        liquid = (C[i - 1] >= cfg.ep_min_price) & (V50[i - 2] * C[i - 1] >= 5e6)
         m = (gap >= cfg.ep_gap) & (volx >= cfg.ep_vol) & strong & liquid & in_univ
+        if cfg.ep_max_prior < 99 and i >= 63:
+            m &= (C[i - 2] / C[i - 62] - 1) <= cfg.ep_max_prior
         if ADR is not None and cfg.ep_min_range_adr > 0:
             rng = 100 * (H[i - 1] - L[i - 1]) / C[i - 1]
             m &= rng >= cfg.ep_min_range_adr * ADR[i - 2]

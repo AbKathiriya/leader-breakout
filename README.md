@@ -16,7 +16,7 @@ This is a rules-based swing system from the SRxTrades guide "How to make money i
 
 1. **Regime (SPY and QQQ).** Both above their 8/21/50 EMAs means risk-on, full size. Both above the 50 means caution, half size. Anything else means risk-off: no new entries.
 2. **Groups.** Rank stocks by an IBD-style RS composite (40% 3-month, 20% each for 6, 9 and 12 months). An industry scores 0.7 × the median member RS rating + 30 × the share of members above their 50 EMA. Take the top 15 industries and the top 5 stocks in each that pass the leader filters. Sectors are shown for context only; gating on them cut returns.
-3. **Leader filters** (from the article's scanner). Price > $3, 10-day average volume > 500k, ADR > 2%, close above the 21 and 50 EMAs.
+3. **Leader filters** (from the article's scanner). Price > $3, 10-day average volume > 500k, ADR > 2%, close above the 21 and 50 EMAs, and close within 15% of the 52-week high (George & Hwang's 52-week-high effect: +3.6 points of CAGR, better in both halves).
 4. **Breakout base.**
    - ≥ 5 bars since the 40-bar high.
    - Depth ≤ max(25%, 3×ADR), capped at 40%.

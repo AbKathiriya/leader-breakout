@@ -40,6 +40,10 @@ class Params:
     volume_profile: bool = True      # also require a heavy-volume leg up and accumulation
     leg_vs_base_min: float = 1.2     # avg volume on the leg up ≥ x × avg volume of the 50 days before it
     ud_ratio_min: float = 1.2        # during the leg: up-day volume ÷ down-day volume ≥ x
+    # optional leader filters (research)
+    trend_template: bool = False     # Minervini: close > 50 > 150 > 200 SMA, 200 SMA rising 1 month, ≥25% above 52w low
+    pth_min: float = 0.85            # close ≥ x × 52-week high (George & Hwang): +3.6 pts CAGR, helps both halves
+    no_3_up: bool = False            # Stockbee: not up 3 days in a row into the setup
     # entries
     vol_mult: float = 1.5
     max_risk_adr: float = 0.5        # skip if LOD stop is further than this × ADR …
@@ -68,6 +72,13 @@ def indicators(px: dict[str, pd.DataFrame], p: Params) -> dict[str, pd.DataFrame
     r = lambda n: c / c.shift(n) - 1
     ind["rs"] = 0.4 * r(63) + 0.2 * r(126) + 0.2 * r(189) + 0.2 * r(252)
     ind["rs"] = ind["rs"].where(c.notna().rolling(130).sum() >= 130)  # need ~6 months of history
+    if p.trend_template or p.pth_min > 0 or p.no_3_up:
+        s50, s150, s200 = c.rolling(50).mean(), c.rolling(150).mean(), c.rolling(200).mean()
+        hi, lo = h.rolling(252, min_periods=120).max(), l.rolling(252, min_periods=120).min()
+        ind["tt"] = (c > s50) & (s50 > s150) & (s150 > s200) & (s200 > s200.shift(21)) & (c >= 1.25 * lo) & (c >= 0.75 * hi)
+        ind["pth"] = c / hi
+        up = c > c.shift(1)
+        ind["up3"] = up & up.shift(1, fill_value=False) & up.shift(2, fill_value=False)
     return ind
 
 
@@ -131,6 +142,12 @@ def select_leaders(date, universe, px, ind, p: Params, ranks: dict | None = None
         & (ind["adr"].loc[date] >= p.min_adr)
         & (c > ind["e2"].loc[date]) & (c > ind["e3"].loc[date])
     )
+    if p.trend_template:
+        ok &= ind["tt"].loc[date].fillna(False).astype(bool)
+    if p.pth_min > 0:
+        ok &= (ind["pth"].loc[date] >= p.pth_min).fillna(False)
+    if p.no_3_up:
+        ok &= ~ind["up3"].loc[date].fillna(False).astype(bool)
     cand = st[st.industry.isin(top_inds) & ok.reindex(st.index).fillna(False)]
     cand = cand.sort_values("rs_rating", ascending=False).groupby("industry").head(p.stocks_per_industry)
     cand = cand.assign(industry_rank=cand.industry.map({k: i + 1 for i, k in enumerate(top_inds)}),

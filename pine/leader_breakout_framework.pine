@@ -107,7 +107,10 @@ bool isTight = tightRng <= tightMult * adr
 float volT = ta.sma(vol, tightLen)
 float dry = vol50 > 0 ? volT / vol50 : na
 bool isDry = not na(dry) and dry <= dryMax
-bool trendOk = close > e2 and close > e3 and e2 > e3
+float hi252 = ta.highest(high, 252)
+float pthMin = input.float(85.0, "Close ≥ x% of 52-week high", minval = 0, maxval = 100, group = GB)
+bool nearHigh = close >= pthMin / 100 * hi252
+bool trendOk = close > e2 and close > e3 and e2 > e3 and nearHigh
 float depthLimit = math.min(depthCap, math.max(maxDepth, depthAdr * adr))
 bool baseOk = k >= minBase and depth <= depthLimit and prior >= priorMove
 bool setup = baseOk and trendOk and isTight and isDry and volLegOk
@@ -252,7 +255,7 @@ if barstate.islast
 f_pos(string s) =>
     s == "Top right" ? position.top_right : s == "Bottom right" ? position.bottom_right : s == "Top left" ? position.top_left : position.bottom_left
 
-var table tb = table.new(f_pos(tPos), 2, 15, border_width = 1, frame_color = color.gray, frame_width = 1)
+var table tb = table.new(f_pos(tPos), 2, 16, border_width = 1, frame_color = color.gray, frame_width = 1)
 
 f_row(int r, string key, string val, color c) =>
     table.cell(tb, 0, r, key, text_color = color.white, bgcolor = color.new(color.black, 20), text_size = size.small, text_halign = text.align_left)
@@ -273,6 +276,7 @@ if showTable and barstate.islast
     f_row(5, "Base", str.tostring(k) + " bars · " + str.tostring(depth, "#.0") + "% deep", baseOk ? good : bad)
     f_row(6, "Tightness (" + str.tostring(tightLen) + " bars)", str.tostring(tightRng, "#.0") + "% (limit " + str.tostring(tightMult * adr, "#.0") + "%)", isTight ? good : bad)
     f_row(7, "Volume in base", na(dry) ? "n/a" : str.tostring(dry, "#.00") + "× 50-bar avg", isDry ? good : bad)
+    f_row(15, "From 52-week high", str.tostring(100 * (close / hi252 - 1), "#.0") + "%", nearHigh ? good : bad)
     f_row(14, "Volume on leg up", na(legRatio) ? "n/a" : str.tostring(legRatio, "#.00") + "× prior · U/D " + str.tostring(legUd, "#.0"), volLegOk ? good : bad)
     f_row(8, "Setup", setup ? "READY" : "No", setup ? good : neu)
     f_row(9, "Trigger / undercut level", setup ? str.tostring(pivot, format.mintick) + " / " + str.tostring(bLow, format.mintick) : "-", neu)

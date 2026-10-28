@@ -94,6 +94,7 @@ def analyze(tickers: list[str], u, px, ind, atr, reg, p, ranks=None) -> list[dic
             "adr>2%": rec["adr"] >= p.min_adr,
             "above_21_50": c > rec["ema21"] and c > rec["ema50"],
             "above_8": c > rec["ema8"],
+            "near_52w_high": bool(np.isfinite(ind["pth"][t].iloc[-1]) and ind["pth"][t].iloc[-1] >= p.pth_min) if "pth" in ind else True,
         }
         rec["leader_filters"] = f
         out.append(rec)
@@ -137,6 +138,7 @@ def analyze_light(tickers: list[str]) -> dict:
             "price>3": c >= p.min_price, "avg_vol10>500k": rec["avg_vol10"] >= p.min_avg_vol10,
             "adr>2%": rec["adr"] >= p.min_adr, "above_21_50": c > rec["ema21"] and c > rec["ema50"],
             "above_8": c > rec["ema8"],
+            "near_52w_high": bool(np.isfinite(ind["pth"][t].iloc[-1]) and ind["pth"][t].iloc[-1] >= p.pth_min) if "pth" in ind else True,
         }
         out.append(rec)
     r_now = int(reg.iloc[-1])
