@@ -131,7 +131,7 @@ def analyze_light(tickers: list[str]) -> dict:
             "industry_rank": inds.get(industry), "industry_count": len(inds) or None, "sector_rank": secs.get(sector),
             "adr": float(ind["adr"][t].iloc[-1]), "avg_vol10": float(ind["vol10"][t].iloc[-1]),
             "ema8": float(ind["e1"][t].iloc[-1]), "ema21": float(ind["e2"][t].iloc[-1]), "ema50": float(ind["e3"][t].iloc[-1]),
-            "setup": s.to_dict(), "bars_tail": bars(px, ind, t, 30),
+            "setup": s.to_dict(), "bars": bars(px, ind, t, 160),
         }
         rec["leader_filters"] = {
             "price>3": c >= p.min_price, "avg_vol10>500k": rec["avg_vol10"] >= p.min_avg_vol10,
@@ -195,10 +195,22 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--tickers", default="")
     ap.add_argument("--no-refresh", action="store_true")
+    ap.add_argument("--charts", default="", help="with --tickers: write annotated PNG charts to this folder")
     a = ap.parse_args()
     if a.tickers:
         tk = [t.strip().upper() for t in a.tickers.split(",") if t.strip()]
-        print(json.dumps(analyze_light(tk), indent=1))
+        res = analyze_light(tk)
+        if a.charts:
+            from .charts import setup_chart
+            out = Path(a.charts)
+            out.mkdir(parents=True, exist_ok=True)
+            for r in res["tickers"]:
+                if "error" not in r and r["setup"].get("trigger") is not None and r.get("bars"):
+                    (out / f"{r['ticker']}.png").write_bytes(setup_chart(r))
+                    r["chart"] = str(out / f"{r['ticker']}.png")
+        for r in res["tickers"]:
+            r.pop("bars", None)
+        print(json.dumps(res, indent=1))
     else:
         r = full_scan(refresh=not a.no_refresh)
         ready = [c["ticker"] for c in r["candidates"] if c["setup"]["ready"]]

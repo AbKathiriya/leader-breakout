@@ -11,7 +11,7 @@ Use when the user gives a ticker or list and asks whether it's a setup, where to
 
 1. Attach and clone the repo: `add_repo` owner `AbKathiriya`, repo `leader-breakout` (read access), then `git clone --depth 1 https://github.com/AbKathiriya/leader-breakout`.
 2. `pip install -q --break-system-packages -r requirements.txt`
-3. From the repo root: `python -m engine.scan --tickers NVDA,RKLB,...`, with uppercase tickers comma-separated. It prints JSON:
+3. From the repo root: `python -m engine.scan --tickers NVDA,RKLB,... --charts charts`, with uppercase tickers comma-separated. It prints JSON and writes an annotated daily chart per ticker to `charts/<TICKER>.png`, showing the base, entry trigger, max stop, undercut level, first target, R:R and the EMA exit levels. The JSON includes:
    - `regime` (2 risk-on, 1 caution, 0 risk-off) and `regime_text`
    - per ticker: `rs_rating` (1–99 versus the whole universe), `industry_rank` / `industry_count`, `sector_rank`, `adr`, EMAs, `leader_filters`, and `setup`, which has `ready`, `checks`, `trigger`, `undercut`, `max_stop`, `t1`, `rr_at_max_stop`, `base_len`, `depth`, `prior_move`, `tight_pct`, `dry` and `ext_atr`
    - Group ranks and RS ratings come from `data/ranks_latest.json`, which the Sunday scan commits. State `ranks_as_of` in the answer. If it is more than 8 days old, say so.
@@ -60,4 +60,4 @@ Without the group ranks file, say that sector, industry and RS context are unava
 
 ## 6. Answer format
 
-Start with one line on the regime. Then a table: Ticker · Verdict · Trigger · Max stop · Undercut · First target · R:R · Note. Follow with 2–4 lines per TRADE/WATCH name: why it qualifies, the earnings date, and the options line. Keep AVOID names to one line each. End with the ranks date, and note that the TradingView indicator `pine/leader_breakout_framework.pine` in the repo draws the same levels.
+Start with one line on the regime. Then a table: Ticker · Verdict · Trigger · Max stop · Undercut · First target · R:R · Note. Follow with 2–4 lines per TRADE/WATCH name: why it qualifies, the earnings date, and the options line. Keep AVOID names to one line each. Send the chart PNGs for TRADE and WATCH names with SendUserFile (one call, all files). End with the ranks date, and note that the TradingView indicator `pine/leader_breakout_framework.pine` in the repo draws the same levels.
