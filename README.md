@@ -64,20 +64,23 @@ Run `python run_backtest.py`; `data/bt_summary.json` holds every variant. Daily 
 
 | Variant (from $10k, 2015 – Oct 2026) | CAGR | Max DD | Sharpe | Trades | Profit factor |
 |---|---|---|---|---|---|
-| **Growth mode (default)** | **36.4%** | **−35.5%** | **1.17** | 198 | 4.91 |
-| Optimistic intraday entry | 41.8% | −35.4% | 1.30 | 87 | 11.9 |
-| Worst-case intraday entry | −23.3% | −97.6% | −0.64 | 437 | 0.41 |
-| Idle cash stays cash | 26.8% | −25.8% | 1.03 | 197 | 4.80 |
-| Idle cash in QQQ | 38.5% | −29.5% | 1.18 | 197 | 4.94 |
-| Breakouts only (no EPs) | 25.9% | −35.4% | 1.07 | 96 | 3.77 |
-| Add undercut entries | 34.7% | −36.0% | 1.16 | 225 | 3.59 |
-| No volume-profile check | 30.7% | −32.3% | 1.03 | 334 | 2.77 |
-| No market-regime filter | 27.6% | −37.4% | 0.95 | 222 | 4.12 |
-| Stops up to 1 ADR | 4.7% | −64.7% | 0.30 | 280 | 0.83 |
-| Standard mode (8 × 25%) | 7.0% | −15.8% | 0.86 | 155 | 3.30 |
+| **Growth mode (default)** | **40.1%** | **−35.4%** | **1.21** | 190 | 5.52 |
+| Optimistic intraday entry | 45.4% | −35.4% | 1.33 | 83 | 14.2 |
+| Worst-case intraday entry | −19.3% | −95.4% | −0.47 | 432 | 0.43 |
+| No 52-week-high filter | 36.4% | −35.5% | 1.17 | 198 | 4.91 |
+| Add Minervini trend template | 38.8% | −35.4% | 1.19 | 175 | 4.72 |
+| Add pocket-pivot entries | 41.4% | −34.7% | 1.20 | 221 | 4.37 |
+| Idle cash stays cash | 31.4% | −24.6% | 1.11 | 190 | 5.49 |
+| Idle cash in QQQ | 42.4% | −29.5% | 1.22 | 190 | 5.52 |
+| Breakouts only (no EPs) | 29.6% | −35.4% | 1.18 | 91 | 4.41 |
+| Add undercut entries | 40.9% | −35.5% | 1.22 | 208 | 4.44 |
+| No volume-profile check | 38.2% | −32.2% | 1.19 | 311 | 3.83 |
+| No market-regime filter | 28.6% | −38.6% | 0.96 | 213 | 4.47 |
+| Stops up to 1 ADR | 14.1% | −44.8% | 0.55 | 270 | 1.06 |
+| Standard mode (8 × 25%) | 6.1% | −9.1% | 0.88 | 136 | 3.49 |
 | SPY buy and hold | 13.7% | −33.7% | | | |
 
-Split periods: 22.0% CAGR in 2015–2020 and 54.2% in 2021–2026. Time to $100k from $10k with $1,500/month deposits, across every start month: 2.6 / 3.2 / 3.7 years (25th / median / 75th percentile), versus about 3.7 years median for SPY alone. The edge rests on entering intraday at the trigger with a low-of-day stop. Entering at the close instead earns almost nothing, and allowing wide stops doubles the drawdown. Requiring a heavy-volume leg up cuts trades by two-thirds but makes the strategy far less sensitive to how entry days play out (worst case −1.6% CAGR instead of −15%). Results are very sensitive to how failed intraday breakouts play out (see the worst case), so execution discipline is the strategy: skip if the low is already below the max stop, and honour the stop immediately. Over this period the strategy does not beat SPY's return, though its drawdowns are smaller. Survivorship bias (today's listings only) means real results would be lower.
+Split periods: 28.2% CAGR in 2015–2020 and 54.7% in 2021–2026. Time to $100k from $10k with $1,500/month deposits, across every start month: 2.6 / 3.2 / 3.7 years (25th / median / 75th percentile), versus about 3.7 years median for SPY alone. The edge rests on entering intraday at the trigger with a low-of-day stop. Entering at the close instead earns almost nothing, and allowing wide stops doubles the drawdown. Requiring a heavy-volume leg up cuts trades by two-thirds but makes the strategy far less sensitive to how entry days play out (worst case −1.6% CAGR instead of −15%). Results are very sensitive to how failed intraday breakouts play out (see the worst case), so execution discipline is the strategy: skip if the low is already below the max stop, and honour the stop immediately. Over this period the strategy does not beat SPY's return, though its drawdowns are smaller. Survivorship bias (today's listings only) means real results would be lower.
 
 ## Intraday check of the entry model
 
