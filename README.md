@@ -96,4 +96,6 @@ python -m engine.weekly options-input quotes.json && python -m engine.options da
 python -m engine.report data/scan_latest.json --options data/options_latest.json --backtest data/bt_report.json -o report
 ```
 
-Daily after the close: `python -m engine.ep_scan` (writes `data/ep_latest.json`), then rebuild the report the same way. EP tickets and charts are added automatically.
+Daily after the close (scheduled task "Leader breakout daily orders", Mon–Fri 1:37 pm PT): read Robinhood positions and fills (read-only), `python -m engine.portfolio sync …`, `python -m engine.ep_scan`, `python -m engine.portfolio orders` → push notification with tomorrow's BUY and SELL tickets. Orders are placed by hand. `data/positions.json` holds each open trade's entry, stop, first target and trims done.
+
+EP scan on its own: `python -m engine.ep_scan` (writes `data/ep_latest.json`), then rebuild the report the same way. EP tickets and charts are added automatically.
