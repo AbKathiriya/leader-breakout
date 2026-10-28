@@ -38,6 +38,8 @@ class Config:
     use_undercut: bool = True
     slippage: float = 0.0010            # per side
     selection: str = "groups"           # groups | rs_only
+    leverage: float = 1.0               # buying power = leverage × equity (2.0 ≈ Reg-T margin)
+    margin_rate: float = 0.09           # annual interest on borrowed cash
     rs_only_n: int = 24
 
 
@@ -66,7 +68,9 @@ def week_ends(idx: pd.DatetimeIndex) -> np.ndarray:
     return (key != key.shift(-1)).to_numpy()
 
 
-def run(px, ind, atr, universe, regime: pd.Series, p: Params, cfg: Config, verbose: bool = False):
+def run(px, ind, atr, universe, regime: pd.Series, p: Params, cfg: Config, verbose: bool = False,
+        watch_cache: dict | None = None):
+    """watch_cache: {bar index → list[Setup]} reused across runs that share Params (sizing-only variants)."""
     dates = px["Close"].index
     i0 = dates.searchsorted(pd.Timestamp(cfg.start))
     i1 = len(dates) - 1 if cfg.end is None else dates.searchsorted(pd.Timestamp(cfg.end), side="right") - 1
@@ -190,7 +194,8 @@ def run(px, ind, atr, universe, regime: pd.Series, p: Params, cfg: Config, verbo
                 if risk_ps <= 0 or 100 * risk_ps / entry > limit_pct + 1e-9:
                     continue
                 risk_amt = equity * cfg.risk_pct * size_mult
-                sh = math.floor(min(risk_amt / risk_ps, cfg.max_pos_pct * equity / entry, cash / entry))
+                buying_power = cash + (cfg.leverage - 1.0) * equity
+                sh = math.floor(min(risk_amt / risk_ps, cfg.max_pos_pct * equity / entry, buying_power / entry))
                 if sh < 4:
                     continue
                 cash -= sh * entry
@@ -204,14 +209,19 @@ def run(px, ind, atr, universe, regime: pd.Series, p: Params, cfg: Config, verbo
                     positions.append(pos)
                     held.add(s.ticker)
 
-        # ── 3. mark to market ──
+        # ── 3. margin interest, mark to market ──
+        if cash < 0:
+            cash -= -cash * cfg.margin_rate / 252
         mv = sum(q.shares * (C[i, tick_ix[q.ticker]] if np.isfinite(C[i, tick_ix[q.ticker]]) else q.entry)
                  for q in positions)
         equity = cash + mv
         curve.append((d, equity, len(positions), r_prev))
 
         # ── 4. weekly scan at week end ──
-        if is_we[i]:
+        if is_we[i] and watch_cache is not None and i in watch_cache:
+            watch, tried = watch_cache[i], set()
+            watch_log.append({"date": d.date(), "setups": [s.ticker for s in watch], "regime": int(reg[i])})
+        elif is_we[i]:
             if cfg.selection == "groups":
                 lead = select_leaders(d, universe, px, ind, p)
             else:
@@ -222,6 +232,8 @@ def run(px, ind, atr, universe, regime: pd.Series, p: Params, cfg: Config, verbo
                 lead = lead[ok.reindex(lead.index).fillna(False)].nlargest(cfg.rs_only_n, "rs_rating")
             setups = [setup_for(t, i, px, ind, atr, p) for t in lead.index]
             watch = [s for s in setups if s.ready]
+            if watch_cache is not None:
+                watch_cache[i] = watch
             tried = set()
             watch_log.append({"date": d.date(), "leaders": len(lead), "setups": [s.ticker for s in watch],
                               "regime": int(reg[i])})
