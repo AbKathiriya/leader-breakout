@@ -1,0 +1,21 @@
+Downloading 79 tickers from 2013-01-01
+  79/79
+{"name": "base (stocks only)", "CAGR %": 40.06, "Max drawdown %": -35.42, "Sharpe": 1.21, "Trades": 190, "Avg R": 5.53, "Profit factor": 5.52, "etf_trades": 0, "etf_avgR": null, "etf_tickers": []}
+{"name": "base (stocks only)  15-20", "CAGR %": 28.15, "Max drawdown %": -35.42, "Sharpe": 1.05, "Trades": 75, "Avg R": 6.0, "Profit factor": 3.2}
+{"name": "base (stocks only)  21-26", "CAGR %": 54.66, "Max drawdown %": -27.27, "Sharpe": 1.38, "Trades": 116, "Avg R": 5.22, "Profit factor": 5.81}
+{"name": "+ ETFs (plain), after stocks", "CAGR %": 38.24, "Max drawdown %": -35.42, "Sharpe": 1.18, "Trades": 191, "Avg R": 5.52, "Profit factor": 5.51, "etf_trades": 5, "etf_avgR": 0.85, "etf_tickers": ["ARKK", "GDXJ", "URA"]}
+{"name": "+ ETFs (plain), after stocks  15-20", "CAGR %": 24.86, "Max drawdown %": -35.42, "Sharpe": 0.97, "Trades": 74, "Avg R": 6.17, "Profit factor": 2.9}
+{"name": "+ ETFs (plain), after stocks  21-26", "CAGR %": 54.69, "Max drawdown %": -25.87, "Sharpe": 1.38, "Trades": 118, "Avg R": 5.08, "Profit factor": 5.84}
+{"name": "+ ETFs (plain, ADR>=1%), after", "CAGR %": 38.15, "Max drawdown %": -35.42, "Sharpe": 1.18, "Trades": 193, "Avg R": 5.47, "Profit factor": 5.51, "etf_trades": 6, "etf_avgR": 0.88, "etf_tickers": ["ARKK", "GDXJ", "SOXX", "URA"]}
+{"name": "+ ETFs (plain, ADR>=1%), after  15-20", "CAGR %": 24.67, "Max drawdown %": -35.42, "Sharpe": 0.96, "Trades": 75, "Avg R": 6.09, "Profit factor": 2.89}
+{"name": "+ ETFs (plain, ADR>=1%), after  21-26", "CAGR %": 54.69, "Max drawdown %": -25.87, "Sharpe": 1.38, "Trades": 118, "Avg R": 5.08, "Profit factor": 5.84}
+{"name": "+ ETFs (plain+lev), after", "CAGR %": 38.31, "Max drawdown %": -35.42, "Sharpe": 1.18, "Trades": 190, "Avg R": 5.58, "Profit factor": 5.52, "etf_trades": 4, "etf_avgR": 2.24, "etf_tickers": ["ARKK", "CURE", "GDXJ"]}
+{"name": "+ ETFs (plain+lev), after  15-20", "CAGR %": 24.87, "Max drawdown %": -35.42, "Sharpe": 0.97, "Trades": 75, "Avg R": 6.1, "Profit factor": 2.91}
+{"name": "+ ETFs (plain+lev), after  21-26", "CAGR %": 54.9, "Max drawdown %": -25.87, "Sharpe": 1.38, "Trades": 116, "Avg R": 5.24, "Profit factor": 5.85}
+{"name": "+ ETFs (plain+lev), before", "CAGR %": 38.31, "Max drawdown %": -35.42, "Sharpe": 1.18, "Trades": 190, "Avg R": 5.58, "Profit factor": 5.52, "etf_trades": 4, "etf_avgR": 2.24, "etf_tickers": ["ARKK", "CURE", "GDXJ"]}
+{"name": "+ ETFs (plain+lev), before  15-20", "CAGR %": 24.87, "Max drawdown %": -35.42, "Sharpe": 0.97, "Trades": 75, "Avg R": 6.1, "Profit factor": 2.91}
+{"name": "+ ETFs (plain+lev), before  21-26", "CAGR %": 54.9, "Max drawdown %": -25.87, "Sharpe": 1.38, "Trades": 116, "Avg R": 5.24, "Profit factor": 5.85}
+{"name": "ETFs only (plain+lev)", "CAGR %": 23.14, "Max drawdown %": -33.86, "Sharpe": 0.81, "Trades": 132, "Avg R": 4.32, "Profit factor": 4.87, "etf_trades": 7, "etf_avgR": 0.87, "etf_tickers": ["ARKK", "CURE", "GDXJ", "TQQQ", "URA"]}
+{"name": "ETFs only (plain+lev)  15-20", "CAGR %": 14.75, "Max drawdown %": -33.86, "Sharpe": 0.61, "Trades": 32, "Avg R": 5.99, "Profit factor": 1.85}
+{"name": "ETFs only (plain+lev)  21-26", "CAGR %": 32.66, "Max drawdown %": -30.53, "Sharpe": 1.0, "Trades": 100, "Avg R": 3.78, "Profit factor": 5.65}
+{"name": "ETFs only (plain, ADR>=1%)", "CAGR %": 23.25, "Max drawdown %": -33.86, "Sharpe": 0.82, "Trades": 133, "Avg R": 4.26, "Profit factor": 4.82, "etf_trades": 8, "etf_avgR": 0.57, "etf_tickers": ["ARKK", "GDXJ", "SOXX", "URA", "XRT"]}
