@@ -32,7 +32,7 @@ Group context sharpens the call. A stock in a top-10 industry with RS ≥ 80 is 
 ## 3. Entry plan (TRADE, and WATCH names that are one check away)
 
 - **Breakout:** buy-stop a few cents above `trigger`. The article's "sniper" entry is the first 5- or 15-minute candle that clears the trigger with volume pacing at least 1.5× normal. If the user asks during market hours, pull today's 5-minute bars with Robinhood `get_equity_historicals` (interval `5minute`) to see whether it has already triggered, and on how much volume.
-- **Stop:** low of the entry day. `max_stop` is the trigger minus the smaller of ½ ADR and 3%. If the day's low is already below `max_stop`, skip the trade. The backtest showed the whole edge comes from these tight-risk entries: trades with 3–10% stops lost money.
+- **Stop:** low of the entry day. `max_stop` is the trigger minus the smaller of ½ ADR and 3%. If the day's low is already below `max_stop`, skip the trade. In the backtest, allowing stops up to 1 ADR kept returns similar but more than doubled the max drawdown (−36% vs −16%).
 - **Undercut & rally (alternative):** price dips below `undercut` (the base low), then reclaims it. Enter on the reclaim, with the stop at the day's low.
 - **Size:** shares = (account × 2% × regime factor) ÷ (entry − stop). The regime factor is 1 in risk-on and 0.5 in caution. Cap any position at 25% of the account. With stops this tight the cap usually binds, so real risk is about 0.25–0.75% of the account. Say so. If the account size isn't known, give the formula and a per-$100k example.
 - **First target:** `t1`, the nearest overhead swing high at least 1R away, otherwise 3R. Report R:R using `max_stop` as the worst case. Below 2R at the max stop, call it marginal.

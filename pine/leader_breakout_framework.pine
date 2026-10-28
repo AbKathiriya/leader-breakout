@@ -30,7 +30,7 @@ float tightMult = input.float(2.0, "Tight if window range ≤ x × ADR%", minval
 float dryMax = input.float(1.0, "Volume dry-up: tightness-window avg vol ≤ x × 50-bar avg", minval = 0.1, group = GB)
 
 string GE = "Entries"
-float volMult = input.float(1.5, "Breakout volume ≥ x × 50-bar avg", minval = 0, group = GE)
+float volMult = input.float(0.0, "Optional: breakout-day volume ≥ x × 50-bar avg (0 = off; close-confirmed entries lost money in testing)", minval = 0, group = GE)
 float maxRiskAdr = input.float(0.5, "Skip if LOD stop distance > x × ADR%", minval = 0.1, group = GE)
 float maxRiskPct = input.float(3.0, "…or > this % (tight risk is where the edge is)", minval = 0.1, group = GE)
 bool showUC = input.bool(true, "Undercut & rally entries", group = GE)
@@ -92,11 +92,16 @@ float pivPrev = pivot[1]
 float lowPrev = bLow[1]
 bool xTrig = ta.crossover(high, pivPrev)
 
-float entryBO = math.max(open, pivPrev)
-bool boRaw = setupPrev and high > pivPrev and close > pivPrev and vol >= volMult * vol50
-float riskBO = 100 * (entryBO - low) / entryBO
+// Breakout = buy-stop fill at the trigger (or the open on a gap). Daily bars can't show whether the day's low came
+// before or after the fill, so use the bar-path convention: up bar O→L→H→C (low first), down bar O→H→L→C (fill first).
 float riskLimit = math.min(maxRiskAdr * adr, maxRiskPct)
-bool boSig = boRaw and riskBO <= riskLimit
+float entryBO = math.max(open, pivPrev)
+float maxStopBO = entryBO * (1 - riskLimit / 100)
+bool boRaw = setupPrev and high > pivPrev and (volMult <= 0 or vol >= volMult * vol50)
+float lodAtFill = close >= open ? low : math.min(open, entryBO)
+float stopBO = close >= open ? low : (lodAtFill < entryBO * 0.9999 ? lodAtFill : maxStopBO)
+bool boSig = boRaw and stopBO >= maxStopBO and stopBO < entryBO
+bool boSameDayStop = boSig and close < open and low <= stopBO
 
 bool ucRaw = showUC and setupPrev and low < lowPrev and close > lowPrev and not boRaw
 float riskUC = 100 * (close - low) / close
@@ -166,13 +171,16 @@ if not inPos and not evStop and not evExit and regimeOk and (boSig or ucSig)
     inPos := true
     evEntry := true
     ent := boSig ? entryBO : close
-    stp := low
+    stp := boSig ? stopBO : low
     tgt := f_target(ent, stp)
     legs := 4
     t1Hit := false
     did8 := false
     did21 := false
     entType := boSig ? "Breakout" : "Undercut"
+    if boSig and boSameDayStop
+        inPos := false
+        evStop := true
 
 // ───────────────────────── Plots ─────────────────────────
 bgcolor(regimeBg ? color.new(regimeCol, 90) : na, title = "Regime")
@@ -238,7 +246,7 @@ if showTable and barstate.islast
 
 // ───────────────────────── Alerts ─────────────────────────
 alertcondition(setupPrev and xTrig, "Price through trigger (intraday)", "{{ticker}} traded through its base trigger")
-alertcondition(evEntry and entType == "Breakout", "Breakout entry (on close)", "{{ticker}} breakout entry, close {{close}}")
+alertcondition(evEntry and entType == "Breakout", "Breakout fill (end of day)", "{{ticker}} filled through the trigger today, close {{close}}")
 alertcondition(evEntry and entType == "Undercut", "Undercut & rally entry", "{{ticker}} undercut and rally entry, close {{close}}")
 alertcondition(evT1 or ev8 or ev21, "Trim 1/4", "{{ticker}} trim signal")
 alertcondition(evExit or evStop, "Exit / stop", "{{ticker}} exit or stop")

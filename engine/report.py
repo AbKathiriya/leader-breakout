@@ -123,7 +123,7 @@ footer { color: var(--muted); font-size: 12.5px; max-width: 90ch; }
     <h2>Trade plan</h2>
     <div class="rules">
       <div class="rule"><h3>Entry</h3><p>Buy-stop just above the trigger. Want volume running at least 1.5× normal by the break; a 5-minute break with volume is the sniper entry. Undercut alternative: price dips under the base low, then reclaims it.</p></div>
-      <div class="rule"><h3>Stop</h3><p>Low of the entry day. If that low is below the max-stop line, pass: in the backtest the wide-stop trades lost money. Size so the stop costs 2% of the account (1% in Caution), capped at 25% of the account per position.</p></div>
+      <div class="rule"><h3>Stop</h3><p>Low of the entry day. If that low is below the max-stop line, pass: in the backtest, wide stops doubled the drawdown. Size so the stop costs 2% of the account (1% in Caution), capped at 25% of the account per position.</p></div>
       <div class="rule"><h3>Trims</h3><p>Sell ¼ at the first target and move the stop to breakeven. Sell ¼ on a close below the 8 EMA, ¼ on a close below the 21 EMA, the rest on a close below the 50 EMA.</p></div>
       <div class="rule"><h3>Market filter</h3><p>Risk-on: full size. Caution: half size. Risk-off: no new entries, manage what you hold.</p></div>
     </div>
@@ -184,7 +184,7 @@ N.innerHTML = `<thead><tr><th>Ticker</th><th>Industry</th><th class="num">RS</th
     return `<tr><td><b class="mono">${esc(c.ticker)}</b></td><td>${esc(c.industry)}</td><td class="num">${f(c.rs_rating, 0)}</td><td class="num">${f(c.close)}</td>
     <td class="num">${f(c.setup.trigger)}</td><td class="num">${pct(c.setup.depth)}</td><td><div class="checks">${miss.map(m => `<span class="pill no">${m}</span>`).join('') || '<span class="pill">history too short</span>'}</div></td></tr>`; }).join('')}</tbody>`;
 
-const VNAME = {base: 'Current rules (pessimistic entry)', optimistic_entry: 'Optimistic intraday entry', close_confirm_entry: 'Enter at close on volume', no_regime_filter: 'No market filter', no_undercut: 'Breakouts only (no undercuts)', t1_3R: 'First target at 3R', sector_gate_top4: 'Gate on top 4 sectors', article_scope_8x3: 'Article scope: 4 sectors, 8 industries × 3', wide_stops_1adr: 'Stops up to 1 ADR', rs_only_no_groups: 'Top RS stocks, no groups', pos_cap_40: 'Position cap 40%'};
+const VNAME = {base: 'Current rules (bar-path intraday model)', optimistic_entry: 'Optimistic intraday entry', worst_case_entry: 'Worst-case intraday entry', close_confirm_entry: 'Enter at close on volume', no_regime_filter: 'No market filter', no_undercut: 'Breakouts only (no undercuts)', t1_3R: 'First target at 3R', sector_gate_top4: 'Gate on top 4 sectors', article_scope_8x3: 'Article scope: 4 sectors, 8 industries × 3', wide_stops_1adr: 'Stops up to 1 ADR', rs_only_no_groups: 'Top RS stocks, no groups', pos_cap_40: 'Position cap 40%'};
 const bar = (v, max) => `<span class="bar" style="width:${Math.max(4, 80 * v / max)}px"></span>`;
 const SEC = document.getElementById('sectors'), top = new Set(S.top_sectors);
 SEC.innerHTML = `<thead><tr><th>#</th><th>Sector</th><th class="num">Members</th><th class="num">Median RS</th><th class="num">Above 50 EMA</th><th>Score</th></tr></thead><tbody>${

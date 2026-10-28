@@ -6,6 +6,9 @@ Timeline (no look-ahead):
     using the previous close's regime for permission and size.
 
 Entry models for the intraday "sniper" entry, which daily bars can't replay exactly:
+  touch_path  (default) buy-stop at trigger; bar-path convention decides whether the day's low came before the fill
+              (up bar: O→L→H→C) or after it (down bar: O→H→L→C → stopped at the low-of-day-at-fill that day).
+  touch_worst every ambiguous day resolved against you (upper bound on damage).
   touch_opt   buy-stop at trigger (or open if gapped above); stop = day's low; no same-day stop-out.
   touch_pess  same, but if the entry day closes below the entry price, assume it was stopped out that day at the low.
   close_conf  enter at the close only if close > trigger and day volume ≥ vol_mult × 50-day avg; stop = day's low.
@@ -31,7 +34,7 @@ class Config:
     regime_filter: bool = True
     max_positions: int = 8
     max_pos_pct: float = 0.25           # notional cap per position (tight LOD stops would otherwise size absurdly)
-    entry_mode: str = "touch_pess"      # touch_opt | touch_pess | close_conf
+    entry_mode: str = "touch_path"      # touch_path | touch_opt | touch_pess | touch_worst | close_conf
     use_undercut: bool = True
     slippage: float = 0.0010            # per side
     selection: str = "groups"           # groups | rs_only
@@ -151,9 +154,31 @@ def run(px, ind, atr, universe, regime: pd.Series, p: Params, cfg: Config, verbo
                     continue
                 adr_prev = ADR[i - 1, j]
                 kind, entry, stop, same_day_stop = None, None, None, False
-                if cfg.entry_mode in ("touch_opt", "touch_pess") and h > s.trigger:
-                    entry, stop, kind = max(o, s.trigger) * (1 + slip), l, "breakout"
-                    same_day_stop = cfg.entry_mode == "touch_pess" and c < entry
+                limit_pct = min(p.max_risk_adr * adr_prev, p.max_risk_pct)
+                touch = cfg.entry_mode in ("touch_opt", "touch_pess", "touch_path", "touch_worst")
+                if touch and h > s.trigger:
+                    kind, entry = "breakout", max(o, s.trigger) * (1 + slip)
+                    max_stop = entry * (1 - limit_pct / 100)
+                    if cfg.entry_mode == "touch_path":
+                        # Bar-path convention: up bar O→L→H→C (low before the fill), down bar O→H→L→C (fill first).
+                        if c >= o:
+                            stop = l
+                        else:
+                            lod_at_fill = min(o, entry)
+                            if lod_at_fill < max_stop:
+                                stop = lod_at_fill          # too wide → skipped below
+                            else:
+                                stop = lod_at_fill if lod_at_fill < entry * (1 - 1e-4) else max_stop
+                                same_day_stop = l <= stop
+                    elif cfg.entry_mode == "touch_worst":
+                        stop = l
+                        if 100 * (entry - l) / entry > limit_pct and o < entry:
+                            stop, same_day_stop = max_stop, True   # assume filled, then fell through the max stop
+                        else:
+                            same_day_stop = c < entry
+                    else:
+                        stop = l
+                        same_day_stop = cfg.entry_mode == "touch_pess" and c < entry
                 elif cfg.entry_mode == "close_conf" and c > s.trigger and v >= p.vol_mult * V50[i - 1, j]:
                     entry, stop, kind = c * (1 + slip), l, "breakout"
                 elif cfg.use_undercut and l < s.undercut and c > s.undercut:
@@ -162,7 +187,7 @@ def run(px, ind, atr, universe, regime: pd.Series, p: Params, cfg: Config, verbo
                     continue
                 tried.add(s.ticker)  # one attempt per ticker per watchlist week
                 risk_ps = entry - stop
-                if risk_ps <= 0 or 100 * risk_ps / entry > min(p.max_risk_adr * adr_prev, p.max_risk_pct):
+                if risk_ps <= 0 or 100 * risk_ps / entry > limit_pct + 1e-9:
                     continue
                 risk_amt = equity * cfg.risk_pct * size_mult
                 sh = math.floor(min(risk_amt / risk_ps, cfg.max_pos_pct * equity / entry, cash / entry))

@@ -17,17 +17,16 @@ from engine.data import DATA, load_prices, load_universe
 from engine.framework import Params, atr_frame, indicators, regime_series
 
 VARIANTS = {
-    # name: (Params overrides, Config overrides). "base" = current defaults.
+    # name: (Params overrides, Config overrides). "base" = current defaults (bar-path intraday model).
     "base": ({}, {}),
     "optimistic_entry": ({}, {"entry_mode": "touch_opt"}),
+    "worst_case_entry": ({}, {"entry_mode": "touch_worst"}),
     "close_confirm_entry": ({}, {"entry_mode": "close_conf"}),
     "no_regime_filter": ({}, {"regime_filter": False}),
     "no_undercut": ({}, {"use_undercut": False}),
-    "t1_3R": ({"t1_mode": "r"}, {}),
     "sector_gate_top4": ({"top_sectors": 4}, {}),
     "article_scope_8x3": ({"top_industries": 8, "stocks_per_industry": 3, "top_sectors": 4}, {}),
     "wide_stops_1adr": ({"max_risk_adr": 1.0, "max_risk_pct": 100.0}, {}),
-    "rs_only_no_groups": ({}, {"selection": "rs_only"}),
     "pos_cap_40": ({}, {"max_pos_pct": 0.40}),
 }
 

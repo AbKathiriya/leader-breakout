@@ -47,12 +47,13 @@ def options_input(quotes_path: str) -> None:
 
 def backtest_card() -> None:
     bt = json.loads((DATA / "bt_summary.json").read_text())
-    b, o = bt["base"], bt.get("optimistic_entry", {})
+    b, o, w = bt["base"], bt.get("optimistic_entry", {}), bt.get("worst_case_entry", {})
     keep = ["CAGR %", "Max drawdown %", "Sharpe", "Trades", "Win rate %", "Avg R", "Profit factor",
             "Benchmark CAGR %", "Benchmark max DD %"]
     card = {
-        "note": "2015 to now, daily bars, pessimistic entry model" + (
-            f" (optimistic model: {o['CAGR %']}% CAGR)" if o else "") + "; universe has survivorship bias",
+        "note": "2015 to now, daily bars, bar-path model of the intraday entry"
+                + (f"; optimistic {o['CAGR %']}% and worst-case {w['CAGR %']}% CAGR" if o and w else "")
+                + "; today's listings only (survivorship bias)",
         "metrics": {k.replace("Benchmark", "SPY"): b[k] for k in keep if k in b},
     }
     card["variants"] = {k: {m: v.get(m) for m in ("CAGR %", "Max drawdown %", "Sharpe", "Trades", "Profit factor")}

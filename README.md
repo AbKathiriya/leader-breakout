@@ -27,7 +27,7 @@ This is a rules-based swing system from the SRxTrades guide "How to make money i
 5. **Entry.**
    - Breakout: buy-stop at the base high.
    - Undercut and rally: buy on the reclaim of the base low.
-   - The stop is the entry day's low. Skip the trade if that stop is more than ½ ADR or 3% away. This rule carries the edge: in testing, trades with 3–10% stops lost money.
+   - The stop is the entry day's low. Skip the trade if that stop is more than ½ ADR or 3% away. In testing, wider stops gave similar returns with more than double the drawdown.
 6. **Size.** Risk 2% of equity (1% in caution), capped at 25% of equity per position, with at most 8 positions. With stops this tight, the 25% cap usually binds first.
 7. **Exits.**
    - Sell ¼ at the first target (the nearest overhead swing high ≥ 1R away, otherwise 3R), then move the stop to breakeven.
@@ -51,19 +51,27 @@ Yahoo endpoints needed: `query1.finance.yahoo.com`, `query2.finance.yahoo.com`, 
 
 ## Backtest (2015 – Oct 2026, daily bars)
 
-The table shows `python run_backtest.py` with the default rules. The first two rows bracket the 5-minute entry, which daily bars can't replay.
+Run `python run_backtest.py`; `data/bt_summary.json` holds every variant. Daily bars can't show whether the entry day's low came before or after the fill at the trigger, so three models bracket the 5-minute entry:
+
+- **Bar-path (default).** Up-close day: open → low → high → close, so the low came first and the trader either skips or uses it as the stop. Down-close day: open → high → low → close, so the trader is filled and then stopped the same day.
+- **Optimistic.** The low always came before the fill.
+- **Worst case.** Every ambiguous day is a fill followed by a stop at the max stop.
 
 | Variant | CAGR | Max DD | Sharpe | Trades | Profit factor |
 |---|---|---|---|---|---|
-| Current rules, pessimistic intraday entry | 7.4% | −20.9% | 0.75 | 321 | 1.92 |
-| Current rules, optimistic intraday entry | 9.7% | −15.3% | 0.91 | 317 | 2.37 |
-| Enter at the close on volume (no intraday entry) | −0.2% | −18.7% | −0.01 | 160 | 0.95 |
-| Stops allowed up to 1 ADR | −3.1% | −55.2% | −0.11 | 818 | 0.89 |
-| Article scope (top 4 sectors, 8 industries × 3) | 3.3% | −15.9% | 0.50 | 136 | 2.00 |
-| Breakouts only (no undercuts) | 7.3% | −11.2% | 0.85 | 194 | 2.69 |
+| **Current rules (bar-path model)** | **8.0%** | **−16.5%** | **0.76** | 452 | 1.93 |
+| Optimistic intraday entry | 9.7% | −15.3% | 0.91 | 317 | 2.37 |
+| Worst-case intraday entry | −15.3% | −86.8% | −1.41 | 888 | 0.50 |
+| Enter at the close on volume | −0.2% | −18.7% | −0.01 | 160 | 0.95 |
+| No market-regime filter | 7.7% | −18.5% | 0.71 | 506 | 1.75 |
+| Breakouts only (no undercuts) | 7.8% | −12.3% | 0.84 | 334 | 2.47 |
+| Gate on top 4 sectors | 2.7% | −21.7% | 0.32 | 458 | 1.27 |
+| Article scope (4 sectors, 8 industries × 3) | 2.7% | −16.0% | 0.41 | 184 | 1.69 |
+| Stops up to 1 ADR | 9.0% | −35.7% | 0.58 | 828 | 1.38 |
+| Position cap 40% | 11.3% | −23.4% | 0.77 | 428 | 1.90 |
 | SPY buy and hold | 13.7% | −33.7% | | | |
 
-The edge comes from tight low-of-day stops taken intraday at the trigger. Over this period the strategy does not beat SPY's return. Its drawdowns are smaller and it sits in cash about 45% of the time. Survivorship bias (today's listings only) means real results would be lower.
+The edge rests on entering intraday at the trigger with a low-of-day stop. Entering at the close instead loses money, and allowing wide stops doubles the drawdown. Results are very sensitive to how failed intraday breakouts play out (see the worst case), so execution discipline is the strategy: skip if the low is already below the max stop, and honour the stop immediately. Over this period the strategy does not beat SPY's return, though its drawdowns are smaller. Survivorship bias (today's listings only) means real results would be lower.
 
 ## Weekly (Sunday) run
 
