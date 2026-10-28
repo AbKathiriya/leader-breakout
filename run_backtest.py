@@ -17,15 +17,18 @@ from engine.data import DATA, load_prices, load_universe
 from engine.framework import Params, atr_frame, indicators, regime_series
 
 VARIANTS = {
-    # name: (Params overrides, Config overrides)
+    # name: (Params overrides, Config overrides). "base" = current defaults.
     "base": ({}, {}),
     "optimistic_entry": ({}, {"entry_mode": "touch_opt"}),
     "close_confirm_entry": ({}, {"entry_mode": "close_conf"}),
     "no_regime_filter": ({}, {"regime_filter": False}),
     "no_undercut": ({}, {"use_undercut": False}),
     "t1_3R": ({"t1_mode": "r"}, {}),
+    "sector_gate_top4": ({"top_sectors": 4}, {}),
+    "article_scope_8x3": ({"top_industries": 8, "stocks_per_industry": 3, "top_sectors": 4}, {}),
+    "wide_stops_1adr": ({"max_risk_adr": 1.0, "max_risk_pct": 100.0}, {}),
     "rs_only_no_groups": ({}, {"selection": "rs_only"}),
-    "risk_1pct": ({}, {"risk_pct": 0.01}),
+    "pos_cap_40": ({}, {"max_pos_pct": 0.40}),
 }
 
 
@@ -61,9 +64,7 @@ def main():
             yearly(res, spy).to_csv(DATA / "bt_yearly.csv")
             print(yearly(res, spy).to_string())
             pd.DataFrame(res["watch"]).to_json(DATA / "bt_watch.json", orient="records", date_format="iso")
-    prev = json.loads((DATA / "bt_summary.json").read_text()) if (DATA / "bt_summary.json").exists() else {}
-    prev.update(summary)
-    (DATA / "bt_summary.json").write_text(json.dumps(prev, indent=1))
+    (DATA / "bt_summary.json").write_text(json.dumps(summary, indent=1))
 
 
 if __name__ == "__main__":

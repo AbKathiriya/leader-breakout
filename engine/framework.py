@@ -22,9 +22,9 @@ class Params:
     min_dollar_vol20: float = 5e6
     min_adr: float = 2.0
     # ranking
-    top_sectors: int = 4
-    top_industries: int = 8
-    stocks_per_industry: int = 3
+    top_sectors: int = 0            # 0 = rank sectors for context but don't gate on them (gating hurt in the backtest)
+    top_industries: int = 15
+    stocks_per_industry: int = 5
     min_industry_members: int = 3
     # base / setup
     min_base: int = 5
@@ -39,7 +39,8 @@ class Params:
     dry_max: float = 1.0             # last tight_len days avg volume ≤ x × 50-day avg
     # entries
     vol_mult: float = 1.5
-    max_risk_adr: float = 1.0
+    max_risk_adr: float = 0.5        # skip if LOD stop is further than this × ADR …
+    max_risk_pct: float = 3.0        # … or further than this % (the edge lives in tight-risk entries)
     # exits
     t1_mode: str = "resistance"   # or "r"
     t1_r: float = 3.0
@@ -213,7 +214,7 @@ def detect_setup(ticker: str, o, h, l, c, v, e2, e3, e1, adr, vol50, atr, t: int
     s.ready = all(checks.values())
     s.trigger, s.undercut, s.base_len = float(pivot), float(base_low), int(k)
     s.depth, s.prior_move, s.tight_pct, s.dry, s.adr, s.close = map(float, (depth, prior, tight, dry, a, c[t]))
-    s.max_stop = float(pivot * (1 - p.max_risk_adr * a / 100))
+    s.max_stop = float(pivot * (1 - min(p.max_risk_adr * a, p.max_risk_pct) / 100))
     s.t1 = first_target(pivot, s.max_stop, h, t, p)
     s.rr_at_max_stop = float((s.t1 - pivot) / (pivot - s.max_stop)) if pivot > s.max_stop else float("nan")
     s.ext_atr = float((c[t] - e1[t]) / atr[t]) if atr[t] > 0 else float("nan")

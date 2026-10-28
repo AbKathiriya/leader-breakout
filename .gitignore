@@ -5,3 +5,9 @@ data/download.log
 data/bt_trades.csv
 data/bt_curve.csv
 report*.html
+data/charts/
+data/scan_20*.json
+data/prices_test.parquet
+data/bt.log
+data/options_input.json
+report/

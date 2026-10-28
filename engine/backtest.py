@@ -162,7 +162,7 @@ def run(px, ind, atr, universe, regime: pd.Series, p: Params, cfg: Config, verbo
                     continue
                 tried.add(s.ticker)  # one attempt per ticker per watchlist week
                 risk_ps = entry - stop
-                if risk_ps <= 0 or 100 * risk_ps / entry > p.max_risk_adr * adr_prev:
+                if risk_ps <= 0 or 100 * risk_ps / entry > min(p.max_risk_adr * adr_prev, p.max_risk_pct):
                     continue
                 risk_amt = equity * cfg.risk_pct * size_mult
                 sh = math.floor(min(risk_amt / risk_ps, cfg.max_pos_pct * equity / entry, cash / entry))

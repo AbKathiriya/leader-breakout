@@ -32,9 +32,9 @@ Group context sharpens the call. A stock in a top-10 industry with RS ≥ 80 is 
 ## 3. Entry plan (TRADE, and WATCH names that are one check away)
 
 - **Breakout:** buy-stop a few cents above `trigger`. The article's "sniper" entry is the first 5- or 15-minute candle that clears the trigger with volume pacing at least 1.5× normal. If the user asks during market hours, pull today's 5-minute bars with Robinhood `get_equity_historicals` (interval `5minute`) to see whether it has already triggered, and on how much volume.
-- **Stop:** low of the entry day. `max_stop` is the trigger minus 1 ADR. If the day's low is already below `max_stop`, skip the trade because the risk is too wide.
+- **Stop:** low of the entry day. `max_stop` is the trigger minus the smaller of ½ ADR and 3%. If the day's low is already below `max_stop`, skip the trade. The backtest showed the whole edge comes from these tight-risk entries: trades with 3–10% stops lost money.
 - **Undercut & rally (alternative):** price dips below `undercut` (the base low), then reclaims it. Enter on the reclaim, with the stop at the day's low.
-- **Size:** shares = (account × 2% × regime factor) ÷ (entry − stop). The regime factor is 1 in risk-on and 0.5 in caution. Cap any position at 25% of the account. If the account size isn't known, give the formula and a per-$100k example.
+- **Size:** shares = (account × 2% × regime factor) ÷ (entry − stop). The regime factor is 1 in risk-on and 0.5 in caution. Cap any position at 25% of the account. With stops this tight the cap usually binds, so real risk is about 0.25–0.75% of the account. Say so. If the account size isn't known, give the formula and a per-$100k example.
 - **First target:** `t1`, the nearest overhead swing high at least 1R away, otherwise 3R. Report R:R using `max_stop` as the worst case. Below 2R at the max stop, call it marginal.
 - **Management:** sell ¼ at `t1` and move the stop to breakeven. Sell ¼ on a daily close below the 8 EMA, ¼ on a close below the 21 EMA, and the rest on a close below the 50 EMA.
 - **Earnings:** check `get_earnings_results` for the ticker. If a report falls within ~10 trading days, flag it. A low-of-day stop doesn't protect against an earnings gap, so either wait or size for the gap.
@@ -42,16 +42,10 @@ Group context sharpens the call. A stock in a top-10 industry with RS ≥ 80 is 
 ## 4. Options alternative (TRADE names), via Robinhood MCP
 
 1. `get_option_chains` (underlying_symbol). Pick the first monthly expiration 45–90 days out, and after the next earnings date when possible.
-2. `get_option_instruments` (chain_symbol, expiration_dates, type `call`), paging with `cursor`. Take 4–6 strikes from about 5% below the trigger up to `t1`.
-3. `get_option_quotes` for those ids. Use `mark_price`, `delta`, `gamma`, `implied_volatility`, `open_interest`, bid and ask.
-4. Choose the call with delta 0.55–0.70. Liquidity gate: bid/ask spread ≤ 6% of mid and open interest ≥ 500. Otherwise say the options are too thin and recommend shares.
-5. Estimate, with S0 = trigger and option value V(S) ≈ mark + Δ·(S − S0) + ½Γ·(S − S0)²:
-   - loss per contract at the stop = 100 × (mark − V(stop)), floored at 0 and capped at the full premium
-   - gain per contract at T1 = 100 × (V(t1) − mark)
-   - contracts = (account × 2% × regime factor) ÷ loss per contract
-   - option R:R = gain ÷ loss, compared with the stock R:R
-6. Volatility check: compare IV with realized volatility ≈ ADR% × √252 × 0.8. If IV is more than 1.3× realized, prefer a **call debit spread**: buy the ~0.6-delta call and sell the strike nearest `t1`. Give its net debit and max value.
-7. Recommend whichever has the better R:R **after** costs, and mention theta per week (theta × 5 × 100 per contract). Options cap the loss on a gap through the stop at the premium. Shares don't decay. Say which trade-off wins here.
+2. For 3–4 strikes between 90% and 101% of the trigger, call `get_option_instruments` with `chain_symbol`, `expiration_dates`, `type: call` **and `strike_price`** (e.g. `"110.0000"`). Make one call per strike, in parallel. Unfiltered listings return every strike and flood the context. Strikes step by $2.50, $5 or $10 depending on price.
+3. `get_option_quotes` for those instrument ids. Note `mark_price`, `bid_price`, `ask_price`, `delta`, `gamma`, `theta`, `implied_volatility` and `open_interest`.
+4. Write a JSON list to a file, one object per ticker: `{"ticker", "spot" (last close), "trigger", "stop" (max_stop), "t1", "adr", "account", "risk_pct": 0.02, "regime_factor", "calls": [{"strike", "mark", "bid", "ask", "delta", "gamma", "theta", "iv", "oi", "expiration"}]}`. Then run `python -m engine.options that_file.json`.
+5. The script values each call at the trigger, the stop and the target using a delta-gamma expansion from today's spot. It pays half the spread on entry and exit and charges theta over about 10 days. It applies a liquidity gate (spread ≤ 6% of mid, OI ≥ 500), compares option R:R with share R:R, and flags IV more than 1.3× realized, in which case a call debit spread up to the target strike is the better structure. Report its `summary` line. If the options are too thin, say "trade shares". Options cap a gap-through-the-stop loss at the premium, while shares don't decay; mention that trade-off when the two are close.
 
 ## 5. Fallback without the engine
 
@@ -60,7 +54,7 @@ Pull 1 year of daily bars for the tickers plus SPY and QQQ with Robinhood `get_e
 - **Regime:** risk-on if SPY and QQQ both close above their 8/21/50 EMAs. Caution if both are above the 50 but not all three. Otherwise risk-off.
 - **Leader:** price > 3, 10-day average volume > 500k, ADR% (20-day mean of high/low − 1) > 2, and close above the 21 and 50 EMAs.
 - **Base:** k = bars since the highest high of the last 40 bars, with k ≥ 5. Depth = (that high − lowest low since) ÷ high ≤ min(40%, max(25%, 3×ADR)). The prior move from the lowest low of the 60 bars before the high must be ≥ 25%. The last 5 bars' range must be ≤ 2×ADR% of the close. The last 5 bars' average volume must be ≤ the 50-day average. Trend: close > 21 EMA > 50 EMA.
-- **Levels:** trigger = base high, undercut = base low, max stop = trigger × (1 − ADR%), t1 as in section 3.
+- **Levels:** trigger = base high, undercut = base low, max stop = trigger × (1 − min(½·ADR%, 3%)), t1 as in section 3.
 
 Without the group ranks file, say that sector, industry and RS context are unavailable.
 

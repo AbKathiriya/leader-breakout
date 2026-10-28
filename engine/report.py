@@ -1,10 +1,12 @@
 """Render the weekly scan JSON (+ optional options picks and backtest summary) into one self-contained HTML page.
 
-  python -m engine.report data/scan_latest.json [--options data/options_latest.json] [--backtest data/backtest_summary.json] -o report.html
+  python -m engine.report data/scan_latest.json [--options data/options_latest.json] [--backtest data/bt_report.json] -o report
+  → report/index.html, report/data.json, report/charts/*.png. Publish index.html with the other files alongside.
 """
 from __future__ import annotations
 
 import argparse
+import base64
 import json
 from pathlib import Path
 
@@ -47,12 +49,13 @@ header { display: grid; gap: 10px; }
 .pill.ok { color: var(--good); } .pill.no { color: var(--bad); }
 .pill.ok::before { content: "✓"; } .pill.no::before { content: "✕"; }
 .section-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
-.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 520px), 1fr)); gap: 18px; }
+.cards { display: grid; grid-template-columns: minmax(0, 1fr); gap: 22px; max-width: 980px; }
 .card { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; display: grid; gap: 12px; padding: 16px; min-width: 0; }
 .card-top { display: flex; justify-content: space-between; gap: 10px; align-items: flex-start; flex-wrap: wrap; }
 .tick { font-family: var(--f-display); font-weight: 800; font-size: 26px; line-height: 1; }
 .meta { color: var(--muted); font-size: 13px; }
-.chart { height: 260px; min-width: 0; }
+.chart { min-width: 0; } .chart img { display: block; width: 100%; height: auto; border-radius: 4px; border: 1px solid var(--line); background: #fff; }
+.chart a { display: block; }
 .levels { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
 .lv { display: grid; gap: 2px; padding: 8px 10px; background: var(--chip); border-radius: 4px; border-top: 3px solid var(--c, var(--line)); }
 .lv b { font-family: var(--f-mono); font-weight: 500; font-size: 15px; }
@@ -87,14 +90,14 @@ footer { color: var(--muted); font-size: 12.5px; max-width: 90ch; }
   <header>
     <div class="eyebrow" id="asof"></div>
     <h1>Leader Breakout Watchlist</h1>
-    <p class="sub">Trend filter, leading groups, the top stocks in them, and which of those are sitting in tight bases. Triggers are buy-stops above the base high; the stop is the entry day's low and must sit above the max-stop line (1 ADR below the trigger), or skip the trade.</p>
+    <p class="sub">Trend filter, leading groups, the top stocks in them, and which of those are sitting in tight bases. Triggers are buy-stops above the base high; the stop is the entry day's low and must sit above the max-stop line (½ ADR or 3% below the trigger, whichever is closer), or skip the trade.</p>
   </header>
 
   <section class="regime" id="regime"></section>
 
   <section style="display:grid;gap:14px">
     <div class="section-head"><h2>Ready setups</h2>
-      <div class="legend"><span><i style="background:var(--ema8)"></i>8 EMA</span><span><i style="background:var(--ema21)"></i>21 EMA</span><span><i style="background:var(--ema50)"></i>50 EMA</span><span><i style="background:var(--trigger)"></i>Trigger</span><span><i style="background:var(--undercut)"></i>Undercut</span><span><i style="background:var(--target)"></i>First target</span></div>
+      <span class="meta">Sorted by quality: RS, tightness, volume dry-up, industry rank</span>
     </div>
     <div class="cards" id="ready"></div>
   </section>
@@ -112,13 +115,15 @@ footer { color: var(--muted); font-size: 12.5px; max-width: 90ch; }
   <section id="btwrap" style="display:grid;gap:12px" hidden>
     <div class="section-head"><h2>Backtest of these rules</h2><span class="meta" id="btnote"></span></div>
     <div class="bt" id="bt"></div>
+    <div class="chart" id="btchart"></div>
+    <div class="tbl"><table id="btvar"></table></div>
   </section>
 
   <section style="display:grid;gap:12px">
     <h2>Trade plan</h2>
     <div class="rules">
       <div class="rule"><h3>Entry</h3><p>Buy-stop just above the trigger. Want volume running at least 1.5× normal by the break; a 5-minute break with volume is the sniper entry. Undercut alternative: price dips under the base low, then reclaims it.</p></div>
-      <div class="rule"><h3>Stop</h3><p>Low of the entry day. If that low is more than one ADR below your fill, pass. Size so the stop costs 2% of the account (1% in Caution).</p></div>
+      <div class="rule"><h3>Stop</h3><p>Low of the entry day. If that low is below the max-stop line, pass: in the backtest the wide-stop trades lost money. Size so the stop costs 2% of the account (1% in Caution), capped at 25% of the account per position.</p></div>
       <div class="rule"><h3>Trims</h3><p>Sell ¼ at the first target and move the stop to breakeven. Sell ¼ on a close below the 8 EMA, ¼ on a close below the 21 EMA, the rest on a close below the 50 EMA.</p></div>
       <div class="rule"><h3>Market filter</h3><p>Risk-on: full size. Caution: half size. Risk-off: no new entries, manage what you hold.</p></div>
     </div>
@@ -127,11 +132,12 @@ footer { color: var(--muted); font-size: 12.5px; max-width: 90ch; }
   <footer id="foot"></footer>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
-<script type="application/json" id="data">__DATA__</script>
 <script>
-const D = JSON.parse(document.getElementById('data').textContent);
-const S = D.scan, OPT = D.options || {}, BT = D.backtest;
+fetch('data.json', {cache: 'no-store'}).then(r => r.json()).then(render).catch(e => {
+  document.getElementById('ready').innerHTML = `<div class="empty">Could not load this week's data (${String(e)}).</div>`;
+});
+function render(D) {
+const S = D.scan, OPT = D.options || {}, BT = D.backtest, IMG = D.charts || {};
 const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
 const f = (x, d = 2) => x == null || !isFinite(x) ? '–' : Number(x).toLocaleString('en-US', {minimumFractionDigits: d, maximumFractionDigits: d});
 const pct = (x, d = 1) => x == null ? '–' : f(x, d) + '%';
@@ -160,7 +166,7 @@ ready.forEach((c, n) => {
   el.innerHTML = `<div class="card-top"><div style="display:grid;gap:4px"><div class="tick">${esc(c.ticker)}</div>
       <div class="meta">${esc(c.name).slice(0, 48)}</div><div class="meta">${esc(c.industry)} · industry #${c.industry_rank_top}</div></div>
       <div style="display:grid;gap:4px;justify-items:end"><span class="pill">RS ${f(c.rs_rating, 0)}</span><span class="pill">ADR ${pct(c.adr)}</span><span class="pill">Close ${f(c.close)}</span></div></div>
-    <div class="chart" id="ch${n}"></div>
+    <div class="chart">${IMG[c.ticker] ? `<img loading="lazy" src="${IMG[c.ticker]}" alt="${esc(c.ticker)} daily chart with base, entry trigger, max stop, undercut level and first target">` : ""}</div>
     <div class="levels">
       <div class="lv" style="--c:var(--trigger)"><span>Trigger</span><b>${f(s.trigger)}</b></div>
       <div class="lv" style="--c:var(--bad)"><span>Max stop</span><b>${f(s.max_stop)}</b></div>
@@ -170,27 +176,7 @@ ready.forEach((c, n) => {
     <div class="meta">Base ${s.base_len} days, ${pct(s.depth)} deep after a ${pct(s.prior_move, 0)} run · last 5 days ${pct(s.tight_pct)} range on ${f(s.dry, 2)}× normal volume · ${f(s.rr_at_max_stop, 1)}R to target if stopped at max · ${f(s.ext_atr, 1)} ATR above 8 EMA</div>
     ${o ? `<div class="opt"><b>Options alternative:</b> ${esc(o.summary)}</div>` : ''}`;
   RC.appendChild(el);
-  requestAnimationFrame(() => drawChart(document.getElementById('ch' + n), c));
 });
-
-function drawChart(node, c) {
-  if (!window.LightweightCharts || !c.bars) { node.innerHTML = '<div class="empty">Chart library did not load.</div>'; return; }
-  const ch = LightweightCharts.createChart(node, {
-    autoSize: true, layout: {background: {color: 'transparent'}, textColor: css('--muted'), fontFamily: 'IBM Plex Mono, monospace', fontSize: 11},
-    grid: {vertLines: {visible: false}, horzLines: {color: css('--line')}}, rightPriceScale: {borderVisible: false},
-    timeScale: {borderVisible: false}, crosshair: {mode: 0}, handleScroll: false, handleScale: false });
-  const up = css('--ema8'), dn = css('--ema21');
-  const k = ch.addCandlestickSeries({upColor: up, downColor: dn, wickUpColor: up, wickDownColor: dn, borderVisible: false, priceLineVisible: false});
-  k.setData(c.bars.map(b => ({time: b[0], open: b[1], high: b[2], low: b[3], close: b[4]})));
-  [['--ema8', 6], ['--ema21', 7], ['--ema50', 8]].forEach(([col, i]) => {
-    const l = ch.addLineSeries({color: css(col), lineWidth: col === '--ema50' ? 2 : 1, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false});
-    l.setData(c.bars.filter(b => b[i] != null).map(b => ({time: b[0], value: b[i]})));
-  });
-  const s = c.setup;
-  [['Trigger', s.trigger, '--trigger', 0], ['Undercut', s.undercut, '--undercut', 2], ['Target', s.t1, '--target', 2], ['Max stop', s.max_stop, '--bad', 1]].forEach(([t, p, col, st]) =>
-    p && k.createPriceLine({price: p, color: css(col), lineWidth: 1, lineStyle: st, axisLabelVisible: true, title: t}));
-  ch.timeScale().fitContent();
-}
 
 const N = document.getElementById('near');
 N.innerHTML = `<thead><tr><th>Ticker</th><th>Industry</th><th class="num">RS</th><th class="num">Close</th><th class="num">Base high</th><th class="num">Depth</th><th>Missing</th></tr></thead><tbody>${
@@ -198,6 +184,7 @@ N.innerHTML = `<thead><tr><th>Ticker</th><th>Industry</th><th class="num">RS</th
     return `<tr><td><b class="mono">${esc(c.ticker)}</b></td><td>${esc(c.industry)}</td><td class="num">${f(c.rs_rating, 0)}</td><td class="num">${f(c.close)}</td>
     <td class="num">${f(c.setup.trigger)}</td><td class="num">${pct(c.setup.depth)}</td><td><div class="checks">${miss.map(m => `<span class="pill no">${m}</span>`).join('') || '<span class="pill">history too short</span>'}</div></td></tr>`; }).join('')}</tbody>`;
 
+const VNAME = {base: 'Current rules (pessimistic entry)', optimistic_entry: 'Optimistic intraday entry', close_confirm_entry: 'Enter at close on volume', no_regime_filter: 'No market filter', no_undercut: 'Breakouts only (no undercuts)', t1_3R: 'First target at 3R', sector_gate_top4: 'Gate on top 4 sectors', article_scope_8x3: 'Article scope: 4 sectors, 8 industries × 3', wide_stops_1adr: 'Stops up to 1 ADR', rs_only_no_groups: 'Top RS stocks, no groups', pos_cap_40: 'Position cap 40%'};
 const bar = (v, max) => `<span class="bar" style="width:${Math.max(4, 80 * v / max)}px"></span>`;
 const SEC = document.getElementById('sectors'), top = new Set(S.top_sectors);
 SEC.innerHTML = `<thead><tr><th>#</th><th>Sector</th><th class="num">Members</th><th class="num">Median RS</th><th class="num">Above 50 EMA</th><th>Score</th></tr></thead><tbody>${
@@ -210,15 +197,40 @@ if (BT) {
   document.getElementById('btwrap').hidden = false;
   document.getElementById('btnote').textContent = BT.note || '';
   document.getElementById('bt').innerHTML = Object.entries(BT.metrics).map(([k, v]) => `<div><span>${esc(k)}</span><b>${typeof v === 'number' ? f(v, Math.abs(v) >= 100 ? 0 : 2) : esc(v)}</b></div>`).join('');
+  if (BT.equity_png) document.getElementById('btchart').innerHTML = `<img loading="lazy" src="${BT.equity_png}" alt="Strategy equity curve against SPY, log scale">`;
+  if (BT.variants) document.getElementById('btvar').innerHTML = `<thead><tr><th>Variant</th><th class="num">CAGR</th><th class="num">Max DD</th><th class="num">Sharpe</th><th class="num">Trades</th><th class="num">Profit factor</th></tr></thead><tbody>${
+    Object.entries(BT.variants).map(([k, v]) => `<tr><td>${esc(VNAME[k] || k)}</td><td class="num">${pct(v['CAGR %'])}</td><td class="num">${pct(v['Max drawdown %'])}</td><td class="num">${f(v['Sharpe'])}</td><td class="num">${v['Trades']}</td><td class="num">${f(v['Profit factor'])}</td></tr>`).join('')}</tbody>`;
 }
-document.getElementById('foot').textContent = 'Universe: US common stocks from Nasdaq/NYSE/AMEX listings, grouped by Nasdaq sector and industry. Prices from Yahoo Finance, daily bars. Leaders: price above 21 and 50 EMA, 10-day volume above 500k, ADR above 2%. This is a rules-based screen, not advice.';
+document.getElementById('foot').textContent = 'Universe: US common stocks from Nasdaq/NYSE/AMEX listings, grouped by Nasdaq sector and industry. Prices from Yahoo Finance, daily bars. Leaders: top 5 stocks by RS in the top 15 industries, price above 21 and 50 EMA, 10-day volume above 500k, ADR above 2%. This is a rules-based screen, not advice.';
+}
 </script>
 """
 
 
-def render(scan: dict, options: dict | None = None, backtest: dict | None = None) -> str:
-    data = json.dumps({"scan": scan, "options": options or {}, "backtest": backtest}).replace("</", "<\\/")
-    return TEMPLATE.replace("__DATA__", data)
+def build(scan: dict, options: dict | None, backtest: dict | None, out_dir: Path) -> list[str]:
+    """Write index.html + data.json + charts/*.png into out_dir. Returns the published file list (besides index)."""
+    from .charts import setup_chart
+    out_dir.mkdir(parents=True, exist_ok=True)
+    (out_dir / "charts").mkdir(exist_ok=True)
+    files, charts = [], {}
+    for c in scan["candidates"]:
+        if c["setup"]["ready"] and c.get("bars"):
+            rel = f"charts/{c['ticker']}.png"
+            (out_dir / rel).write_bytes(setup_chart(c))
+            charts[c["ticker"]] = rel
+            files.append(rel)
+    for c in scan["candidates"]:
+        c.pop("bars", None)
+    scan.pop("index_bars", None)
+    bt = dict(backtest) if backtest else None
+    if bt and bt.get("equity_png"):
+        (out_dir / "charts" / "equity.png").write_bytes(base64.b64decode(bt["equity_png"]))
+        bt["equity_png"] = "charts/equity.png"
+        files.append("charts/equity.png")
+    (out_dir / "data.json").write_text(json.dumps({"scan": scan, "options": options or {}, "backtest": bt, "charts": charts}))
+    files.append("data.json")
+    (out_dir / "index.html").write_text(TEMPLATE)
+    return files
 
 
 if __name__ == "__main__":
@@ -226,8 +238,8 @@ if __name__ == "__main__":
     ap.add_argument("scan")
     ap.add_argument("--options")
     ap.add_argument("--backtest")
-    ap.add_argument("-o", "--out", default="report.html")
+    ap.add_argument("-o", "--out", default="report")
     a = ap.parse_args()
     load = lambda p: json.loads(Path(p).read_text()) if p and Path(p).exists() else None
-    Path(a.out).write_text(render(load(a.scan), load(a.options), load(a.backtest)))
-    print("wrote", a.out)
+    files = build(load(a.scan), load(a.options), load(a.backtest), Path(a.out))
+    print(json.dumps({"page": str(Path(a.out) / "index.html"), "files": files}))
