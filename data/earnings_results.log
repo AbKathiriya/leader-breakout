@@ -1,0 +1,18 @@
+{"name": "ep_first", "CAGR %": 40.25, "Max drawdown %": -35.43, "Sharpe": 1.21, "Trades": 192, "Avg R": 5.47, "Profit factor": 5.53, "stop_gap": 8, "gap_R": -8.9, "pre_earn": 0, "worst_R": -4.42}
+{"name": "ep_first  15-20", "CAGR %": 28.07, "Max drawdown %": -35.43, "Sharpe": 1.05, "Trades": 76, "Avg R": 5.9, "Profit factor": 3.17}
+{"name": "ep_first  21-26", "CAGR %": 55.15, "Max drawdown %": -27.27, "Sharpe": 1.38, "Trades": 117, "Avg R": 5.14, "Profit factor": 5.82}
+{"name": "ep_first  worst-entry", "CAGR %": -19.69, "Max drawdown %": -95.37, "Sharpe": -0.48, "Trades": 436, "Avg R": 2.08, "Profit factor": 0.42}
+{"name": "block2", "CAGR %": 38.48, "Max drawdown %": -35.42, "Sharpe": 1.21, "Trades": 187, "Avg R": 5.31, "Profit factor": 5.67, "stop_gap": 7, "gap_R": -10.2, "pre_earn": 0, "worst_R": -4.42}
+{"name": "block2  15-20", "CAGR %": 24.85, "Max drawdown %": -35.42, "Sharpe": 1.04, "Trades": 73, "Avg R": 5.36, "Profit factor": 2.6}
+{"name": "block2  21-26", "CAGR %": 55.24, "Max drawdown %": -26.37, "Sharpe": 1.39, "Trades": 115, "Avg R": 5.24, "Profit factor": 6.13}
+{"name": "block2  worst-entry", "CAGR %": -19.83, "Max drawdown %": -96.32, "Sharpe": -0.53, "Trades": 431, "Avg R": 2.0, "Profit factor": 0.41}
+{"name": "block5", "CAGR %": 32.98, "Max drawdown %": -35.42, "Sharpe": 1.1, "Trades": 191, "Avg R": 4.93, "Profit factor": 4.36, "stop_gap": 7, "gap_R": -14.2, "pre_earn": 0, "worst_R": -6.54}
+{"name": "block5  15-20", "CAGR %": 24.91, "Max drawdown %": -35.42, "Sharpe": 1.04, "Trades": 73, "Avg R": 5.37, "Profit factor": 2.6}
+{"name": "exit_all", "CAGR %": 40.34, "Max drawdown %": -35.42, "Sharpe": 1.22, "Trades": 191, "Avg R": 5.5, "Profit factor": 5.57, "stop_gap": 8, "gap_R": -8.9, "pre_earn": 1, "worst_R": -4.42}
+{"name": "exit_all  15-20", "CAGR %": 28.15, "Max drawdown %": -35.42, "Sharpe": 1.05, "Trades": 75, "Avg R": 6.0, "Profit factor": 3.2}
+{"name": "exit_all  21-26", "CAGR %": 55.27, "Max drawdown %": -27.25, "Sharpe": 1.39, "Trades": 115, "Avg R": 5.29, "Profit factor": 5.86}
+{"name": "exit_all  worst-entry", "CAGR %": -19.33, "Max drawdown %": -95.3, "Sharpe": -0.47, "Trades": 431, "Avg R": 1.83, "Profit factor": 0.43}
+{"name": "block2+exit_half", "CAGR %": 38.48, "Max drawdown %": -35.42, "Sharpe": 1.21, "Trades": 187, "Avg R": 5.31, "Profit factor": 5.67, "stop_gap": 7, "gap_R": -10.2, "pre_earn": 0, "worst_R": -4.42}
+{"name": "block2+exit_half  15-20", "CAGR %": 24.85, "Max drawdown %": -35.42, "Sharpe": 1.04, "Trades": 73, "Avg R": 5.36, "Profit factor": 2.6}
+{"name": "block2+exit_half  21-26", "CAGR %": 55.24, "Max drawdown %": -26.37, "Sharpe": 1.39, "Trades": 115, "Avg R": 5.24, "Profit factor": 6.13}
+{"name": "block2+exit_half  worst-entry", "CAGR %": -19.83, "Max drawdown %": -96.32, "Sharpe": -0.53, "Trades": 431, "Avg R": 2.0, "Profit factor": 0.41}

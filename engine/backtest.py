@@ -57,6 +57,10 @@ class Config:
     ep_max_prior: float = 99.0          # Qullamaggie: prefer "neglected" stocks — max 60-day return before the gap
     idle: str = "cash"                  # cash | SPY | QQQ — where uninvested cash sits (sold to fund entries)
     idle_regime: bool = True            # only hold the idle ETF when the regime is not risk-off
+    ep_first: bool = False              # try today's EP candidates before the weekly breakout watchlist
+    earn: dict | None = None            # ticker → sorted array of bar indices of earnings-gap sessions
+    earn_block: int = 0                 # skip entries when an earnings-gap session is within this many sessions
+    earn_exit: str = "none"             # none | half | all — before an earnings-gap session, if T1 not hit yet
     idle_reserve: bool = False          # realistic: hold cash (not the ETF) on days with a live ticket to fund       # gap-day range ≥ x × prior ADR (buyouts gap and then pin, range ≈ 0.1–0.2× ADR)
 
 
@@ -170,6 +174,14 @@ def run(px, ind, atr, universe, regime: pd.Series, p: Params, cfg: Config, verbo
                     close_part(pos, max(1, pos.shares0 // 4), c, "close<ema21", d)
                 if pos.shares and c < E3[i, j] and (pos.t1hit or p.exit50_early):
                     close_part(pos, pos.shares, c, "close<ema50", d)
+            if pos.shares and cfg.earn and cfg.earn_exit != "none" and not pos.t1hit and not getattr(pos, "earn_done", False):
+                ev = cfg.earn.get(pos.ticker)
+                if ev is not None and len(ev):
+                    k = np.searchsorted(ev, i + 1)
+                    if k < len(ev) and ev[k] == i + 1:
+                        pos.earn_done = True
+                        n = pos.shares if cfg.earn_exit == "all" else max(1, pos.shares // 2)
+                        close_part(pos, n, c, "pre_earnings", d)
             if pos.shares > 0:
                 still.append(pos)
             else:
@@ -182,7 +194,8 @@ def run(px, ind, atr, universe, regime: pd.Series, p: Params, cfg: Config, verbo
         size_mult = 0.5 if (cfg.half_size_in_caution and cfg.regime_filter and r_prev == 1) else 1.0
         todays = list(watch)
         if allowed and cfg.ep and i >= 2:
-            todays += _ep_candidates(i, O, H, L, C, V, V50, in_univ, px["Close"].columns, cfg, ADR)
+            eps_ = _ep_candidates(i, O, H, L, C, V, V50, in_univ, px["Close"].columns, cfg, ADR)
+            todays = eps_ + todays if cfg.ep_first else todays + eps_
         if allowed and todays:
             held = {q.ticker for q in positions}
             for s in todays:
@@ -190,6 +203,12 @@ def run(px, ind, atr, universe, regime: pd.Series, p: Params, cfg: Config, verbo
                     break
                 if s.ticker in held or s.ticker in tried:
                     continue
+                if cfg.earn and cfg.earn_block:
+                    ev = cfg.earn.get(s.ticker)
+                    if ev is not None and len(ev):
+                        k = np.searchsorted(ev, i + 1)
+                        if k < len(ev) and 1 <= ev[k] - i <= cfg.earn_block:  # gap today = fine (that's the move)
+                            continue
                 j = tick_ix[s.ticker]
                 o, h, l, c, v = O[i, j], H[i, j], L[i, j], C[i, j], V[i, j]
                 if not np.isfinite(c) or not np.isfinite(o):
