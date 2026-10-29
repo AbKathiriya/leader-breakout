@@ -119,7 +119,8 @@ def orders() -> dict:
         last = df.iloc[-1]
         sh, q = r["shares"], max(1, int(r["shares0"] // 4))
         c, h, l = float(last.Close), float(last.High), float(last.Low)
-        if l <= r["stop"]:
+        entry_day = str(df.index[-1].date()) == str(r["entry_date"])[:10]   # day's low includes pre-entry trading
+        if l <= r["stop"] and not entry_day:
             sells.append({"ticker": t, "action": "SELL ALL", "shares": sh, "type": "market at open",
                           "why": f"stop {r['stop']:.2f} was hit (low {l:.2f}); exit if the stop order didn't already fill"})
             continue

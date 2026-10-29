@@ -1,11 +1,11 @@
 {
-  "equity": 10000,
-  "monthly_deposit": 1500,
-  "mode": "growth_cash",
-  "max_positions": 2,
-  "max_position_pct": 1.0,
-  "risk_pct": 0.05,
-  "chase_limit_pct": 1.0,
-  "exit_mode": "ladder",
-  "use_undercut": false
+ "equity": 4969.8,
+ "monthly_deposit": 1500,
+ "mode": "growth_cash",
+ "max_positions": 2,
+ "max_position_pct": 1.0,
+ "risk_pct": 0.05,
+ "chase_limit_pct": 1.0,
+ "exit_mode": "ladder",
+ "use_undercut": false
 }
