@@ -1,8 +1,8 @@
 {
- "as_of": "2026-10-29",
+ "as_of": "2026-10-30",
  "regime": 0,
  "account": {
-  "equity": 4969.8,
+  "equity": 4880.6,
   "monthly_deposit": 1500,
   "mode": "growth_cash",
   "max_positions": 2,
@@ -15,7 +15,5 @@
  },
  "sells": [],
  "buys": [],
- "holding": [
-  "AXGN: hold 99 sh \u00b7 stop 48.83 \u00b7 T1 52.91 (sell 24 there) \u00b7 close 49.63 vs 8/21/50 EMA 41.96/39.97/41.23"
- ]
+ "holding": []
 }

@@ -1,15 +1,1 @@
-{
- "AXGN": {
-  "entry_date": "2026-10-29",
-  "entry": 49.99,
-  "shares0": 99.0,
-  "max_stop": 48.8275,
-  "stop": 48.8275,
-  "t1": 52.91,
-  "t1_hit": false,
-  "did8": false,
-  "did21": false,
-  "stop_from_day_low": true,
-  "shares": 99.0
- }
-}
+{}
