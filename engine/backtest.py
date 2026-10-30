@@ -65,6 +65,7 @@ class Config:
     earn: dict | None = None            # ticker → sorted array of bar indices of earnings-gap sessions
     earn_block: int = 0                 # skip entries when an earnings-gap session is within this many sessions
     earn_exit: str = "none"             # none | half | all — before an earnings-gap session, if T1 not hit yet
+    idle_off: str = ""                  # if set: what idle cash holds when the regime is risk-off (e.g. SH, PSQ, cash)
     idle_reserve: bool = False          # realistic: hold cash (not the ETF) on days with a live ticket to fund       # gap-day range ≥ x × prior ADR (buyouts gap and then pin, range ≈ 0.1–0.2× ADR)
 
 
@@ -281,7 +282,11 @@ def run(px, ind, atr, universe, regime: pd.Series, p: Params, cfg: Config, verbo
         # ── 3. idle cash in an index ETF (modelled as cash earning the ETF's daily return, 0.05% cost per switch) ──
         live_ticket = allowed and bool(todays) and len(positions) < cfg.max_positions
         if cfg.idle != "cash" and cash > 0 and i > 0 and not (cfg.idle_reserve and live_ticket):
-            if not cfg.idle_regime or reg[i - 1] >= 1:
+            if cfg.idle_off and reg[i - 1] == 0:
+                if cfg.idle_off != "cash":
+                    k = tick_ix[cfg.idle_off]
+                    cash *= C[i, k] / C[i - 1, k]
+            elif not cfg.idle_regime or reg[i - 1] >= 1:
                 k = tick_ix[cfg.idle]
                 cash *= C[i, k] / C[i - 1, k]
         # ── deposits, margin interest, mark to market ──
