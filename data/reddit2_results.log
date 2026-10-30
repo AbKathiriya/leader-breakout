@@ -1,0 +1,24 @@
+{"name": "RS 1-month", "CAGR %": 28.36, "Max drawdown %": -39.78, "Sharpe": 0.93, "Trades": 168, "Avg R": 3.93, "Profit factor": 4.1, "winrate": 22.0, "avgR_wo_top10pct": -1.42, "by_kind": {"breakout": {"size": 58, "mean": 1.36}, "ep": {"size": 110, "mean": 5.28}}}
+{"name": "RS 1-month  15-20", "CAGR %": 18.27, "Max drawdown %": -39.78, "Sharpe": 0.7, "Trades": 53, "Avg R": 5.0, "Profit factor": 1.92}
+{"name": "RS 1-month  21-26", "CAGR %": 40.24, "Max drawdown %": -27.3, "Sharpe": 1.15, "Trades": 116, "Avg R": 3.39, "Profit factor": 4.6}
+{"name": "RS blend 1m + composite", "CAGR %": 39.52, "Max drawdown %": -37.6, "Sharpe": 1.19, "Trades": 192, "Avg R": 5.51, "Profit factor": 5.1, "winrate": 26.6, "avgR_wo_top10pct": -1.01, "by_kind": {"breakout": {"size": 93, "mean": 4.96}, "ep": {"size": 99, "mean": 6.02}}}
+{"name": "RS blend 1m + composite  15-20", "CAGR %": 26.32, "Max drawdown %": -37.6, "Sharpe": 0.99, "Trades": 69, "Avg R": 6.68, "Profit factor": 3.03}
+{"name": "RS blend 1m + composite  21-26", "CAGR %": 55.73, "Max drawdown %": -27.02, "Sharpe": 1.39, "Trades": 123, "Avg R": 4.89, "Profit factor": 5.35}
+{"name": "regime SMA10>20 (replace)", "CAGR %": 26.06, "Max drawdown %": -38.56, "Sharpe": 0.89, "Trades": 177, "Avg R": 3.92, "Profit factor": 5.01, "winrate": 24.3, "avgR_wo_top10pct": -1.27, "by_kind": {"breakout": {"size": 80, "mean": 2.64}, "ep": {"size": 97, "mean": 4.98}}}
+{"name": "regime SMA10>20 (replace)  15-20", "CAGR %": 13.01, "Max drawdown %": -35.24, "Sharpe": 0.66, "Trades": 71, "Avg R": 2.38, "Profit factor": 1.87}
+{"name": "regime SMA10>20 (replace)  21-26", "CAGR %": 42.29, "Max drawdown %": -38.58, "Sharpe": 1.1, "Trades": 107, "Avg R": 4.95, "Profit factor": 5.91}
+{"name": "regime current AND SMA10>20", "CAGR %": 32.34, "Max drawdown %": -37.07, "Sharpe": 1.04, "Trades": 173, "Avg R": 4.28, "Profit factor": 5.89, "winrate": 24.9, "avgR_wo_top10pct": -1.27, "by_kind": {"breakout": {"size": 78, "mean": 3.22}, "ep": {"size": 95, "mean": 5.16}}}
+{"name": "T1 fixed 2R", "CAGR %": 40.38, "Max drawdown %": -35.43, "Sharpe": 1.22, "Trades": 191, "Avg R": 5.55, "Profit factor": 6.24, "winrate": 28.8, "avgR_wo_top10pct": -1.01, "by_kind": {"breakout": {"size": 92, "mean": 4.89}, "ep": {"size": 99, "mean": 6.17}}}
+{"name": "T1 fixed 2R  15-20", "CAGR %": 27.97, "Max drawdown %": -35.43, "Sharpe": 1.05, "Trades": 75, "Avg R": 5.95, "Profit factor": 3.23}
+{"name": "T1 fixed 2R  21-26", "CAGR %": 55.58, "Max drawdown %": -24.88, "Sharpe": 1.4, "Trades": 116, "Avg R": 5.31, "Profit factor": 6.64}
+{"name": "T1 fixed 2.5R", "CAGR %": 40.26, "Max drawdown %": -35.43, "Sharpe": 1.22, "Trades": 190, "Avg R": 5.55, "Profit factor": 5.93, "winrate": 27.9, "avgR_wo_top10pct": -0.97, "by_kind": {"breakout": {"size": 91, "mean": 4.9}, "ep": {"size": 99, "mean": 6.15}}}
+{"name": "T1 fixed 2.5R  15-20", "CAGR %": 28.1, "Max drawdown %": -35.43, "Sharpe": 1.05, "Trades": 75, "Avg R": 5.93, "Profit factor": 3.25}
+{"name": "T1 fixed 2.5R  21-26", "CAGR %": 55.16, "Max drawdown %": -27.29, "Sharpe": 1.39, "Trades": 116, "Avg R": 5.27, "Profit factor": 6.27}
+{"name": "EP day-1 ORB gap10 (+day2)", "CAGR %": 92.92, "Max drawdown %": -47.85, "Sharpe": 1.5, "Trades": 616, "Avg R": 1.58, "Profit factor": 7.41, "winrate": 18.5, "avgR_wo_top10pct": -0.93, "by_kind": {"breakout": {"size": 53, "mean": 5.09}, "ep": {"size": 563, "mean": 1.24}}}
+{"name": "EP day-1 ORB gap10 (+day2)  15-20", "CAGR %": 75.46, "Max drawdown %": -38.72, "Sharpe": 1.38, "Trades": 323, "Avg R": 1.83, "Profit factor": 5.0}
+{"name": "EP day-1 ORB gap10 (+day2)  21-26", "CAGR %": 124.82, "Max drawdown %": -32.72, "Sharpe": 1.74, "Trades": 298, "Avg R": 1.47, "Profit factor": 7.42}
+{"name": "EP day-1 ORB gap15 (+day2)", "CAGR %": 66.63, "Max drawdown %": -48.94, "Sharpe": 1.08, "Trades": 550, "Avg R": 1.3, "Profit factor": 4.54, "winrate": 18.4, "avgR_wo_top10pct": -1.01, "by_kind": {"breakout": {"size": 66, "mean": 1.29}, "ep": {"size": 484, "mean": 1.3}}}
+{"name": "EP day-1 ORB gap15 (+day2)  15-20", "CAGR %": 37.8, "Max drawdown %": -38.72, "Sharpe": 1.04, "Trades": 227, "Avg R": 0.98, "Profit factor": 2.29}
+{"name": "EP day-1 ORB gap15 (+day2)  21-26", "CAGR %": 127.02, "Max drawdown %": -49.21, "Sharpe": 1.34, "Trades": 351, "Avg R": 1.52, "Profit factor": 6.68}
+{"name": "EP day-1 ORB gap15 only", "CAGR %": 63.98, "Max drawdown %": -44.35, "Sharpe": 1.13, "Trades": 510, "Avg R": 1.17, "Profit factor": 7.02, "winrate": 17.5, "avgR_wo_top10pct": -1.0, "by_kind": {"breakout": {"size": 64, "mean": 1.36}, "ep": {"size": 446, "mean": 1.14}}}
+{"name": "day1 gap10 fixed stop, worst ordering", "CAGR %": -40.64, "Max drawdown %": -99.8, "Sharpe": -0.68, "Trades": 977, "Avg R": -0.17, "Profit factor": 0.51, "by_kind": {"breakout": {"size": 48, "mean": 5.87}, "ep": {"size": 929, "mean": -0.48}}}

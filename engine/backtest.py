@@ -57,6 +57,10 @@ class Config:
     ep_max_prior: float = 99.0          # Qullamaggie: prefer "neglected" stocks — max 60-day return before the gap
     idle: str = "cash"                  # cash | SPY | QQQ — where uninvested cash sits (sold to fund entries)
     idle_regime: bool = True            # only hold the idle ETF when the regime is not risk-off
+    ep_day1: bool = False               # same-day EP: today's open gaps ≥ ep1_gap → buy-stop at open × (1 + ep1_orb), stop LOD
+    ep1_gap: float = 0.10
+    ep1_orb: float = 0.005
+    ep1_stop: str = "lod"               # lod (bar-path LOD) | max: fixed max-stop, stopped the same day if the day's low reaches it
     ep_first: bool = False              # try today's EP candidates before the weekly breakout watchlist
     earn: dict | None = None            # ticker → sorted array of bar indices of earnings-gap sessions
     earn_block: int = 0                 # skip entries when an earnings-gap session is within this many sessions
@@ -196,6 +200,8 @@ def run(px, ind, atr, universe, regime: pd.Series, p: Params, cfg: Config, verbo
         if allowed and cfg.ep and i >= 2:
             eps_ = _ep_candidates(i, O, H, L, C, V, V50, in_univ, px["Close"].columns, cfg, ADR)
             todays = eps_ + todays if cfg.ep_first else todays + eps_
+        if allowed and cfg.ep_day1 and i >= 2:
+            todays += _ep_day1(i, O, C, V50, in_univ, px["Close"].columns, cfg)
         if allowed and todays:
             held = {q.ticker for q in positions}
             for s in todays:
@@ -220,7 +226,9 @@ def run(px, ind, atr, universe, regime: pd.Series, p: Params, cfg: Config, verbo
                 if touch and h > s.trigger:
                     kind, entry = ("ep" if getattr(s, "is_ep", False) else "breakout"), max(o, s.trigger) * (1 + slip)
                     max_stop = entry * (1 - limit_pct / 100)
-                    if cfg.entry_mode == "touch_path":
+                    if getattr(s, "day1", False) and cfg.ep1_stop == "max":
+                        stop, same_day_stop = max_stop * (1 + 1e-9), l <= max_stop   # worst ordering: any low below it came after the fill
+                    elif cfg.entry_mode == "touch_path":
                         # Bar-path convention: up bar O→L→H→C (low before the fill), down bar O→H→L→C (fill first).
                         if c >= o:
                             stop = l
@@ -355,6 +363,20 @@ def _ep_candidates(i, O, H, L, C, V, V50, in_univ, cols, cfg, ADR=None) -> list:
     idx = idx[np.argsort(-volx[idx])][: cfg.ep_max]
     return [SimpleNamespace(ticker=cols[j], trigger=float(H[i - 1, j]), undercut=float("nan"), is_ep=True)
             for j in idx]
+
+
+def _ep_day1(i, O, C, V50, in_univ, cols, cfg) -> list:
+    """Gap day itself: open ≥ ep1_gap above yesterday's close (known at the open). Opening-range-high proxy =
+    open × (1 + ep1_orb). Volume/catalyst can't be checked from daily bars, so only liquidity filters apply."""
+    from types import SimpleNamespace
+    with np.errstate(invalid="ignore", divide="ignore"):
+        gap = O[i] / C[i - 1] - 1
+        liquid = (C[i - 1] >= cfg.ep_min_price) & (V50[i - 1] * C[i - 1] >= 5e6)
+        m = (gap >= cfg.ep1_gap) & liquid & in_univ
+    idx = np.where(m)[0]
+    idx = idx[np.argsort(-gap[idx])][: cfg.ep_max]
+    return [SimpleNamespace(ticker=cols[j], trigger=float(O[i, j] * (1 + cfg.ep1_orb)), undercut=float("nan"),
+                            is_ep=True, day1=True) for j in idx]
 
 
 def metrics(res, bench: pd.Series | None = None) -> dict:
