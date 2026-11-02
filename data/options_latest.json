@@ -1,1 +1,56 @@
-{}
+{
+ "INSW": {
+  "ticker": "INSW",
+  "choice": "shares",
+  "stock_rr": 3.0,
+  "best_call": {
+   "strike": 120,
+   "mark": 5.0,
+   "bid": 3.5,
+   "ask": 6.5,
+   "delta": 0.3917,
+   "gamma": 0.0193,
+   "theta": -0.0863,
+   "iv": 0.498,
+   "oi": 101,
+   "expiration": "2026-12-18",
+   "spread_pct": 60.0,
+   "delta_at_entry": 0.67,
+   "est_entry_price": 14.09,
+   "loss_per_contract_at_stop": 499.0,
+   "gain_per_contract_at_t1": 287.0,
+   "rr": 0.57,
+   "contracts": 4,
+   "liquid": false
+  },
+  "iv_rich": false,
+  "summary": "Options too thin (60.0% wide, OI 101); trade shares. Stock R:R 3.0R."
+ },
+ "SIG": {
+  "ticker": "SIG",
+  "choice": "shares",
+  "stock_rr": 3.0,
+  "best_call": {
+   "strike": 115,
+   "mark": 10.6,
+   "bid": 9.9,
+   "ask": 11.3,
+   "delta": 0.5971,
+   "gamma": 0.0172,
+   "theta": -0.0998,
+   "iv": 0.534,
+   "oi": 14,
+   "expiration": "2026-12-18",
+   "spread_pct": 13.2,
+   "delta_at_entry": 0.68,
+   "est_entry_price": 14.28,
+   "loss_per_contract_at_stop": 292.0,
+   "gain_per_contract_at_t1": 233.0,
+   "rr": 0.8,
+   "contracts": 6,
+   "liquid": false
+  },
+  "iv_rich": false,
+  "summary": "Options too thin (13.2% wide, OI 14); trade shares. Stock R:R 3.0R."
+ }
+}
