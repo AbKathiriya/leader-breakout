@@ -63,7 +63,7 @@ class Config:
     ep_gap: float = 0.10
     ep_vol: float = 3.0
     ep_max: int = 10
-    ep_min_range_adr: float = 2.0
+    ep_min_range_adr: float = 2.0       # gap-day range ≥ x × prior ADR (buyouts gap and then pin, range ≈ 0.1–0.2× ADR)
     pocket_pivot: bool = False          # O'Neil/Morales early entry inside the base: up close on volume > any down day of last 10
     ep_min_price: float = 3.0           # Stockbee EP scans use ≥ $5
     ep_max_prior: float = 99.0          # Qullamaggie: prefer "neglected" stocks — max 60-day return before the gap
@@ -78,7 +78,7 @@ class Config:
     earn_block: int = 0                 # skip entries when an earnings-gap session is within this many sessions
     earn_exit: str = "none"             # none | half | all — before an earnings-gap session, if T1 not hit yet
     idle_off: str = ""                  # if set: what idle cash holds when the regime is risk-off (e.g. SH, PSQ, cash)
-    idle_reserve: bool = False          # realistic: hold cash (not the ETF) on days with a live ticket to fund       # gap-day range ≥ x × prior ADR (buyouts gap and then pin, range ≈ 0.1–0.2× ADR)
+    idle_reserve: bool = False          # realistic: hold cash (not the ETF) on days with a live ticket to fund
     gap_fix: bool = False               # audit: no future low as the stop on fills at the open (see module docstring)
     exit_next_open: bool = False        # audit: EMA-close exits fill at the next open
     chase_limit_pct: float = 0.0        # audit: 0 = fill any gap at the open; 1.0 = the live ticket's limit
@@ -333,7 +333,7 @@ def run(px, ind, atr, universe, regime: pd.Series, p: Params, cfg: Config, verbo
                     positions.append(pos)
                     held.add(s.ticker)
 
-        # ── 3. idle cash in an index ETF (modelled as cash earning the ETF's daily return, 0.05% cost per switch) ──
+        # ── 3. idle cash in an index ETF (modelled as cash earning the ETF's daily return; no cost is charged for switching) ──
         live_ticket = allowed and bool(todays) and len(positions) < cfg.max_positions
         if cfg.idle != "cash" and cash > 0 and i > 0 and not (cfg.idle_reserve and live_ticket):
             if cfg.idle_off and reg[i - 1] == 0:
