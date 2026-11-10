@@ -12,6 +12,18 @@ Entry models for the intraday "sniper" entry, which daily bars can't replay exac
   touch_opt   buy-stop at trigger (or open if gapped above); stop = day's low; no same-day stop-out.
   touch_pess  same, but if the entry day closes below the entry price, assume it was stopped out that day at the low.
   close_conf  enter at the close only if close > trigger and day volume ≥ vol_mult × 50-day avg; stop = day's low.
+  live        the procedure the daily tickets describe: buy-stop-limit (no fill above trigger + chase_limit_pct),
+              sell-stop at the max stop on the entry day, tightened to the entry day's low after that day closes.
+              A fill at the open (gap above the trigger) has the whole day's range after it. Other days use the
+              bar-path convention, or the worst ordering with live_worst.
+
+Audit switches (all off by default, so the published numbers still reproduce):
+  gap_fix         touch_path only. When the open is above the trigger the fill is at the open, so the day's low comes
+                  after the fill. The old code used that low as the stop and as the skip test, which is look-ahead.
+                  With gap_fix the stop is the max stop and the trade is stopped the same day if the low reaches it.
+  exit_next_open  EMA-close exits are sold at the next open (what the daily tickets do) instead of at the signal close.
+  chase_limit_pct no fill when the open is more than this % above the trigger (the ticket's stop-limit).
+  stop_slippage   slippage on stop exits, when it should be larger than the normal per-side slippage.
 """
 from __future__ import annotations
 
@@ -51,7 +63,7 @@ class Config:
     ep_gap: float = 0.10
     ep_vol: float = 3.0
     ep_max: int = 10
-    ep_min_range_adr: float = 2.0
+    ep_min_range_adr: float = 2.0       # gap-day range ≥ x × prior ADR (buyouts gap and then pin, range ≈ 0.1–0.2× ADR)
     pocket_pivot: bool = False          # O'Neil/Morales early entry inside the base: up close on volume > any down day of last 10
     ep_min_price: float = 3.0           # Stockbee EP scans use ≥ $5
     ep_max_prior: float = 99.0          # Qullamaggie: prefer "neglected" stocks — max 60-day return before the gap
@@ -66,7 +78,12 @@ class Config:
     earn_block: int = 0                 # skip entries when an earnings-gap session is within this many sessions
     earn_exit: str = "none"             # none | half | all — before an earnings-gap session, if T1 not hit yet
     idle_off: str = ""                  # if set: what idle cash holds when the regime is risk-off (e.g. SH, PSQ, cash)
-    idle_reserve: bool = False          # realistic: hold cash (not the ETF) on days with a live ticket to fund       # gap-day range ≥ x × prior ADR (buyouts gap and then pin, range ≈ 0.1–0.2× ADR)
+    idle_reserve: bool = False          # realistic: hold cash (not the ETF) on days with a live ticket to fund
+    gap_fix: bool = False               # audit: no future low as the stop on fills at the open (see module docstring)
+    exit_next_open: bool = False        # audit: EMA-close exits fill at the next open
+    chase_limit_pct: float = 0.0        # audit: 0 = fill any gap at the open; 1.0 = the live ticket's limit
+    live_worst: bool = False            # audit: live mode, any entry-day low at or below the max stop is a stop-out
+    stop_slippage: float | None = None  # audit: per-side slippage on stop exits (None = same as slippage)
 
 
 # Growth mode (account under $100k, no margin): up to 2 positions using the whole account, breakouts + episodic pivots,
@@ -93,6 +110,7 @@ class Pos:
     did21: bool = False
     i_entry: int = 0
     exits: list = field(default_factory=list)
+    pending: list = field(default_factory=list)   # (shares, reason) to sell at the next open (exit_next_open)
 
 
 def week_ends(idx: pd.DatetimeIndex) -> np.ndarray:
@@ -114,6 +132,7 @@ def run(px, ind, atr, universe, regime: pd.Series, p: Params, cfg: Config, verbo
     ADR, V50 = ind["adr"].to_numpy(dtype=float), ind["vol50"].to_numpy(dtype=float)
     reg = regime.reindex(dates).fillna(0).to_numpy()
     slip = cfg.slippage
+    stop_slip = slip if cfg.stop_slippage is None else cfg.stop_slippage
 
     cash, equity = cfg.capital, cfg.capital
     units = cfg.capital                 # NAV units, so deposits don't count as returns
@@ -129,7 +148,8 @@ def run(px, ind, atr, universe, regime: pd.Series, p: Params, cfg: Config, verbo
         n = min(n, pos.shares)
         if n <= 0:
             return
-        fill = price * (1 - slip)
+        is_stop = why.startswith("stop")
+        fill = price * (1 - (stop_slip if is_stop else slip))
         cash += n * fill
         pos.proceeds += n * fill
         pos.shares -= n
@@ -145,6 +165,18 @@ def run(px, ind, atr, universe, regime: pd.Series, p: Params, cfg: Config, verbo
             "t1_hit": pos.t1hit, "exits": pos.exits,
         })
 
+    def left(pos: Pos) -> int:
+        return pos.shares - sum(k for k, _ in pos.pending)
+
+    def sell_on_close(pos: Pos, n: int, c: float, why: str, d):
+        """Close-based exit: at the signal close (default) or queued for the next open (exit_next_open)."""
+        if cfg.exit_next_open:
+            n = min(n, left(pos))
+            if n > 0:
+                pos.pending.append((n, why))
+        else:
+            close_part(pos, n, c, why, d)
+
     for i in range(max(i0, 260), i1 + 1):
         d = dates[i]
         # ── 1. manage open positions ──
@@ -155,6 +187,13 @@ def run(px, ind, atr, universe, regime: pd.Series, p: Params, cfg: Config, verbo
             if not np.isfinite(c):
                 still.append(pos)
                 continue
+            if pos.pending and np.isfinite(o):
+                for n_, why_ in pos.pending:
+                    close_part(pos, n_, o, why_ + "@open", d)
+                pos.pending = []
+                if pos.shares <= 0:
+                    finish(pos, d)
+                    continue
             if o <= pos.stop:
                 close_part(pos, pos.shares, o, "stop_gap", d)
             elif l <= pos.stop:
@@ -171,14 +210,14 @@ def run(px, ind, atr, universe, regime: pd.Series, p: Params, cfg: Config, verbo
                 if not pos.t1hit and h >= pos.t1:
                     close_part(pos, max(1, pos.shares0 // 4), max(o, pos.t1), "t1", d)
                     pos.t1hit, pos.stop = True, pos.entry
-                if pos.shares and pos.t1hit and not pos.did8 and c < E1[i, j]:
+                if left(pos) and pos.t1hit and not pos.did8 and c < E1[i, j]:
                     pos.did8 = True
-                    close_part(pos, max(1, pos.shares0 // 4), c, "close<ema8", d)
-                if pos.shares and pos.t1hit and not pos.did21 and c < E2[i, j]:
+                    sell_on_close(pos, max(1, pos.shares0 // 4), c, "close<ema8", d)
+                if left(pos) and pos.t1hit and not pos.did21 and c < E2[i, j]:
                     pos.did21 = True
-                    close_part(pos, max(1, pos.shares0 // 4), c, "close<ema21", d)
-                if pos.shares and c < E3[i, j] and (pos.t1hit or p.exit50_early):
-                    close_part(pos, pos.shares, c, "close<ema50", d)
+                    sell_on_close(pos, max(1, pos.shares0 // 4), c, "close<ema21", d)
+                if left(pos) and c < E3[i, j] and (pos.t1hit or p.exit50_early):
+                    sell_on_close(pos, left(pos), c, "close<ema50", d)
             if pos.shares and cfg.earn and cfg.earn_exit != "none" and not pos.t1hit and not getattr(pos, "earn_done", False):
                 ev = cfg.earn.get(pos.ticker)
                 if ev is not None and len(ev):
@@ -221,14 +260,26 @@ def run(px, ind, atr, universe, regime: pd.Series, p: Params, cfg: Config, verbo
                 if not np.isfinite(c) or not np.isfinite(o):
                     continue
                 adr_prev = ADR[i - 1, j]
-                kind, entry, stop, same_day_stop = None, None, None, False
+                kind, entry, stop, same_day_stop, tighten = None, None, None, False, False
                 limit_pct = min(p.max_risk_adr * adr_prev, p.max_risk_pct)
-                touch = cfg.entry_mode in ("touch_opt", "touch_pess", "touch_path", "touch_worst")
+                touch = cfg.entry_mode in ("touch_opt", "touch_pess", "touch_path", "touch_worst", "live")
+                if touch and h > s.trigger and cfg.chase_limit_pct > 0 and o > s.trigger * (1 + cfg.chase_limit_pct / 100):
+                    tried.add(s.ticker)      # stop-limit triggered above its limit: no fill; treated as cancelled
+                    continue
                 if touch and h > s.trigger:
                     kind, entry = ("ep" if getattr(s, "is_ep", False) else "breakout"), max(o, s.trigger) * (1 + slip)
                     max_stop = entry * (1 - limit_pct / 100)
+                    gap_fill = o > s.trigger                     # filled at the open → the day's low is after the fill
                     if getattr(s, "day1", False) and cfg.ep1_stop == "max":
                         stop, same_day_stop = max_stop * (1 + 1e-9), l <= max_stop   # worst ordering: any low below it came after the fill
+                    elif cfg.entry_mode == "live":
+                        # Ticket procedure: resting order fills with no check of the low; sell-stop at the max stop.
+                        stop, tighten = max_stop, True
+                        if gap_fill or cfg.live_worst or c < o:
+                            same_day_stop = l <= max_stop
+                    elif cfg.entry_mode == "touch_path" and cfg.gap_fix and gap_fill:
+                        stop, tighten = max_stop, True
+                        same_day_stop = l <= max_stop
                     elif cfg.entry_mode == "touch_path":
                         # Bar-path convention: up bar O→L→H→C (low before the fill), down bar O→H→L→C (fill first).
                         if c >= o:
@@ -264,7 +315,8 @@ def run(px, ind, atr, universe, regime: pd.Series, p: Params, cfg: Config, verbo
                     continue
                 risk_amt = equity * cfg.risk_pct * size_mult
                 buying_power = cash + (cfg.leverage - 1.0) * equity
-                sh = math.floor(min(risk_amt / risk_ps, cfg.max_pos_pct * equity / entry, buying_power / entry))
+                cap_mult = size_mult if cfg.entry_mode == "live" else 1.0   # tickets halve the cash cap in caution too
+                sh = math.floor(min(risk_amt / risk_ps, cap_mult * cfg.max_pos_pct * equity / entry, buying_power / entry))
                 if sh < 4:
                     continue
                 cash -= sh * entry
@@ -276,10 +328,12 @@ def run(px, ind, atr, universe, regime: pd.Series, p: Params, cfg: Config, verbo
                     close_part(pos, pos.shares, stop, "stop_same_day", d)
                     finish(pos, d)
                 else:
+                    if tighten and l < entry:
+                        pos.stop = max(l, stop)       # after the entry day closes the stop moves up to that day's low
                     positions.append(pos)
                     held.add(s.ticker)
 
-        # ── 3. idle cash in an index ETF (modelled as cash earning the ETF's daily return, 0.05% cost per switch) ──
+        # ── 3. idle cash in an index ETF (modelled as cash earning the ETF's daily return; no cost is charged for switching) ──
         live_ticket = allowed and bool(todays) and len(positions) < cfg.max_positions
         if cfg.idle != "cash" and cash > 0 and i > 0 and not (cfg.idle_reserve and live_ticket):
             if cfg.idle_off and reg[i - 1] == 0:
