@@ -10,7 +10,6 @@ from pathlib import Path
 import matplotlib
 
 matplotlib.use("Agg")
-import matplotlib.dates as mdates  # noqa: E402
 import matplotlib.pyplot as plt  # noqa: E402
 import numpy as np  # noqa: E402
 import pandas as pd  # noqa: E402
@@ -129,8 +128,6 @@ def setup_chart(rec: dict, days: int = 110, future: int = 18) -> bytes:
                f"on {s.get('dry', float('nan')):.2f}× avg vol")
     fig.text(0.07, 0.915, sub, fontsize=8.5, color=C["muted"])
     leg = [("8 EMA", C["ema8"]), ("21 EMA", C["ema21"]), ("50 EMA", C["ema50"])]
-    for i, (t, c) in enumerate(leg):
-        fig.text(0.07 + i * 0.075, 0.885 - 0.0, "", color=c)
     ax.legend(handles=[plt.Line2D([], [], color=c, lw=2, label=t) for t, c in leg], loc="upper left",
               frameon=False, fontsize=8, labelcolor=C["muted"], ncol=3)
 

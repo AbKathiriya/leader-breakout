@@ -64,13 +64,16 @@ def ticket(c: dict, acct: dict, regime: int) -> dict:
     }
 
 
-def tickets_for(scan: dict, acct: dict | None = None, top: int | None = None, ep: dict | None = None) -> dict:
+def tickets_for(scan: dict, acct: dict | None = None, top: int | None = None, ep: dict | None = None,
+                regime: int | None = None) -> dict:
+    """regime: today's regime when the caller has it. Otherwise the EP scan's (if it is newer) or the weekly scan's."""
     acct = acct or load_account()
     ready = [c for c in scan["candidates"] if c["setup"]["ready"]]
     ready.sort(key=lambda c: -(c.get("score") or 0))
     if ep:
         ready += ep.get("candidates", [])          # breakouts keep priority, as in the backtest
-    regime = ep["regime"] if ep and ep.get("as_of", "") >= scan["as_of"] else scan["regime"]
+    if regime is None:
+        regime = ep["regime"] if ep and ep.get("as_of", "") >= scan["as_of"] else scan["regime"]
     tix = [ticket(c, acct, regime) for c in ready[: top or len(ready)]]
     live = [t for t in tix if t["allowed"]][: acct["max_positions"]]
     idle = acct.get("idle", "cash")

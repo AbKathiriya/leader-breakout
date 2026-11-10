@@ -11,6 +11,7 @@ import json
 import sys
 
 from .data import DATA
+from .tickets import load_account
 
 
 def options_plan(regime_factor: float | None = None) -> list[dict]:
@@ -36,11 +37,12 @@ def options_plan(regime_factor: float | None = None) -> list[dict]:
 def options_input(quotes_path: str) -> None:
     """quotes file: {ticker: [{strike, mark, bid, ask, delta, gamma, theta, iv, oi, expiration}, ...]}"""
     quotes = json.loads(open(quotes_path).read())
+    acct = load_account()            # size contracts for this account, not the options module's $100k default
     items = []
     for p in options_plan():
         if p["ticker"] in quotes:
             items.append({**{k: p[k] for k in ("ticker", "spot", "trigger", "stop", "t1", "adr", "regime_factor")},
-                          "calls": quotes[p["ticker"]]})
+                          "account": acct["equity"], "risk_pct": acct["risk_pct"], "calls": quotes[p["ticker"]]})
     (DATA / "options_input.json").write_text(json.dumps(items, indent=1))
     print(f"wrote {DATA / 'options_input.json'} ({len(items)} tickers)")
 
