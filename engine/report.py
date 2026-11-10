@@ -172,7 +172,7 @@ R.innerHTML = `<div><div class="eyebrow">Market regime</div><div class="state">$
 
 const ready = S.candidates.filter(c => c.setup.ready).sort((a, b) => ((a.kind === 'EP') - (b.kind === 'EP')) || (b.score || 0) - (a.score || 0));
 const near = S.candidates.filter(c => !c.setup.ready);
-const checkNames = {trend: 'Trend', base_length: 'Base ≥5d', depth: 'Depth', prior_move: 'Prior move', tight: 'Tight', volume_dry: 'Volume dry'};
+const checkNames = {trend: 'Trend', base_length: 'Base ≥5d', depth: 'Depth', prior_move: 'Prior move', tight: 'Tight', volume_dry: 'Volume dry', volume_leg_heavy: 'Leg volume', accumulation: 'Accumulation'};
 
 function ticketHtml(t) {
   const flag = t.allowed ? `<span class="pill ok">${esc(t.size_note)}</span>` : `<span class="pill bad">${esc(t.size_note)}</span>`;
@@ -219,7 +219,7 @@ N.innerHTML = `<thead><tr><th>Ticker</th><th>Industry</th><th class="num">RS</th
     return `<tr><td><b class="mono">${esc(c.ticker)}</b></td><td>${esc(c.industry)}</td><td class="num">${f(c.rs_rating, 0)}</td><td class="num">${f(c.close)}</td>
     <td class="num">${f(c.setup.trigger)}</td><td class="num">${pct(c.setup.depth)}</td><td><div class="checks">${miss.map(m => `<span class="pill no">${m}</span>`).join('') || '<span class="pill">history too short</span>'}</div></td></tr>`; }).join('')}</tbody>`;
 
-const VNAME = {base: 'Growth mode (what this page trades)', optimistic_entry: 'Optimistic intraday entry', worst_case_entry: 'Worst-case intraday entry', idle_cash_not_spy: 'Idle cash stays cash', idle_qqq: 'Idle cash in QQQ', no_episodic_pivots: 'Breakouts only', with_undercuts: 'Add undercut entries', standard_mode_8x25pct: 'Standard mode (8 × 25%, for $100k+)', no_52w_high_filter: 'No 52-week-high filter', minervini_trend_template: 'Add Minervini trend template', pocket_pivot_entries: 'Add pocket-pivot entries', no_volume_profile: 'No volume-profile check', no_regime_filter: 'No market filter', wide_stops_1adr: 'Stops up to 1 ADR', close_confirm_entry: 'Enter at close on volume', no_regime_filter: 'No market filter', no_undercut: 'Breakouts only (no undercuts)', t1_3R: 'First target at 3R', sector_gate_top4: 'Gate on top 4 sectors', article_scope_8x3: 'Article scope: 4 sectors, 8 industries × 3', wide_stops_1adr: 'Stops up to 1 ADR', rs_only_no_groups: 'Top RS stocks, no groups', pos_cap_40: 'Position cap 40%'};
+const VNAME = {base: 'Growth mode (what this page trades)', optimistic_entry: 'Optimistic intraday entry', worst_case_entry: 'Worst-case intraday entry', idle_cash_not_spy: 'Idle cash stays cash', idle_qqq: 'Idle cash in QQQ', no_episodic_pivots: 'Breakouts only', with_undercuts: 'Add undercut entries', standard_mode_8x25pct: 'Standard mode (8 × 25%, for $100k+)', no_52w_high_filter: 'No 52-week-high filter', minervini_trend_template: 'Add Minervini trend template', pocket_pivot_entries: 'Add pocket-pivot entries', no_volume_profile: 'No volume-profile check', no_regime_filter: 'No market filter', wide_stops_1adr: 'Stops up to 1 ADR'};
 const bar = (v, max) => `<span class="bar" style="width:${Math.max(4, 80 * v / max)}px"></span>`;
 const SEC = document.getElementById('sectors'), top = new Set(S.top_sectors);
 SEC.innerHTML = `<thead><tr><th>#</th><th>Sector</th><th class="num">Members</th><th class="num">Median RS</th><th class="num">Above 50 EMA</th><th>Score</th></tr></thead><tbody>${
@@ -236,7 +236,7 @@ if (BT) {
   if (BT.variants) document.getElementById('btvar').innerHTML = `<thead><tr><th>Variant</th><th class="num">CAGR</th><th class="num">Max DD</th><th class="num">Sharpe</th><th class="num">Trades</th><th class="num">Profit factor</th></tr></thead><tbody>${
     Object.entries(BT.variants).map(([k, v]) => `<tr><td>${esc(VNAME[k] || k)}</td><td class="num">${pct(v['CAGR %'])}</td><td class="num">${pct(v['Max drawdown %'])}</td><td class="num">${f(v['Sharpe'])}</td><td class="num">${v['Trades']}</td><td class="num">${f(v['Profit factor'])}</td></tr>`).join('')}</tbody>`;
 }
-document.getElementById('foot').textContent = 'Universe: US common stocks from Nasdaq/NYSE/AMEX listings, grouped by Nasdaq sector and industry. Prices from Yahoo Finance, daily bars. Leaders: top 5 stocks by RS in the top 15 industries, price above 21 and 50 EMA, 10-day volume above 500k, ADR above 2%. This is a rules-based screen, not advice.';
+document.getElementById('foot').textContent = 'Universe: US common stocks from Nasdaq/NYSE/AMEX listings, grouped by Nasdaq sector and industry. Prices from Yahoo Finance, daily bars. Leaders: top 5 stocks by RS in the top 15 industries, price above 21 and 50 EMA, within 15% of the 52-week high, 10-day volume above 500k, ADR above 2%. This is a rules-based screen, not advice.';
 }
 </script>
 """

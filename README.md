@@ -42,7 +42,7 @@ Account settings live in `data/account.json` (equity, monthly deposit, slots, id
 
 - **Survivorship bias.** The universe is today's listings, so stocks that were delisted are missing. That flatters the results.
 - **Industry labels.** Groups use today's Nasdaq sector and industry labels for the whole history.
-- **Daily bars only.** The backtest can't replay the 5-minute sniper entry or the intraday low-of-day stop. It reports three entry models (`touch_pess`, `touch_opt`, `close_conf`) to bracket reality.
+- **Daily bars only.** The backtest can't replay the 5-minute sniper entry or the intraday low-of-day stop. It reports three entry models (bar-path `touch_path`, optimistic `touch_opt`, worst case `touch_worst`) to bracket reality.
 - **No options history.** Options are not backtested because no free historical options data exists. The skill builds an options alternative from live Robinhood chains.
 
 ## Setup
@@ -55,6 +55,8 @@ python -m engine.scan          # first run downloads ~3,800 tickers (≈30 min);
 Yahoo endpoints needed: `query1.finance.yahoo.com`, `query2.finance.yahoo.com`, `fc.yahoo.com`.
 
 ## Backtest (2015 – Oct 2026, daily bars)
+
+> **Audit, Nov 2026.** The numbers in this section are too high. The bar-path model has a look-ahead on fills at the open, and it is not the live ticket procedure. See `docs/AUDIT.md` on branch `audit/live-entry-model` for the corrected results.
 
 Run `python run_backtest.py`; `data/bt_summary.json` holds every variant. Daily bars can't show whether the entry day's low came before or after the fill at the trigger, so three models bracket the 5-minute entry:
 
@@ -80,7 +82,7 @@ Run `python run_backtest.py`; `data/bt_summary.json` holds every variant. Daily 
 | Standard mode (8 × 25%) | 6.1% | −9.1% | 0.88 | 136 | 3.49 |
 | SPY buy and hold | 13.7% | −33.7% | | | |
 
-Split periods: 28.2% CAGR in 2015–2020 and 54.7% in 2021–2026. Time to $100k from $10k with $1,500/month deposits, across every start month: 2.6 / 3.2 / 3.7 years (25th / median / 75th percentile), versus about 3.7 years median for SPY alone. The edge rests on entering intraday at the trigger with a low-of-day stop. Entering at the close instead earns almost nothing, and allowing wide stops doubles the drawdown. Requiring a heavy-volume leg up cuts trades by two-thirds but makes the strategy far less sensitive to how entry days play out (worst case −1.6% CAGR instead of −15%). Results are very sensitive to how failed intraday breakouts play out (see the worst case), so execution discipline is the strategy: skip if the low is already below the max stop, and honour the stop immediately. Over this period the strategy does not beat SPY's return, though its drawdowns are smaller. Survivorship bias (today's listings only) means real results would be lower.
+Split periods: 28.2% CAGR in 2015–2020 and 54.7% in 2021–2026. Time to $100k from $10k with $1,500/month deposits, across every start month: 2.6 / 3.2 / 3.7 years (25th / median / 75th percentile), versus about 3.7 years median for SPY alone. The edge rests on entering intraday at the trigger with a low-of-day stop. Entering at the close instead earns almost nothing, and allowing wide stops doubles the drawdown. Requiring a heavy-volume leg up cuts trades by two-thirds but makes the strategy far less sensitive to how entry days play out. Results are very sensitive to how failed intraday breakouts play out (see the worst case), so execution discipline is the strategy: skip if the low is already below the max stop, and honour the stop immediately. Survivorship bias (today's listings only) means real results would be lower.
 
 ## Intraday check of the entry model
 
@@ -95,6 +97,8 @@ python -m engine.weekly options-plan        # which option strikes to quote for 
 python -m engine.weekly options-input quotes.json && python -m engine.options data/options_input.json > data/options_latest.json
 python -m engine.report data/scan_latest.json --options data/options_latest.json --backtest data/bt_report.json -o report
 ```
+
+After a new `python run_backtest.py`, run `python -m engine.weekly backtest-card` to rebuild `data/bt_report.json` for the report page.
 
 Daily after the close (scheduled task "Leader breakout daily orders", Mon–Fri 1:37 pm PT): read Robinhood positions and fills (read-only), `python -m engine.portfolio sync …`, `python -m engine.ep_scan`, `python -m engine.portfolio orders` → push notification with tomorrow's BUY and SELL tickets. Orders are placed by hand. `data/positions.json` holds each open trade's entry, stop, first target and trims done.
 

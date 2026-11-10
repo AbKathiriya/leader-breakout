@@ -6,7 +6,6 @@ import time
 import urllib.request
 from pathlib import Path
 
-import numpy as np
 import pandas as pd
 import yfinance as yf
 
@@ -61,7 +60,8 @@ def _download_batch(tickers: list[str], start: str) -> dict[str, pd.DataFrame]:
             out = {}
             for t in tickers:
                 try:
-                    df = d[t][FIELDS] if len(tickers) > 1 else d[FIELDS]
+                    # newer yfinance returns (ticker, field) columns for one ticker too
+                    df = d[t][FIELDS] if isinstance(d.columns, pd.MultiIndex) else d[FIELDS]
                 except KeyError:
                     continue
                 df = df.dropna(subset=["Close"])

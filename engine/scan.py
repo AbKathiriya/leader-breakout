@@ -16,9 +16,7 @@ import numpy as np
 import pandas as pd
 import yfinance as yf
 
-from .data import FIELDS
-
-from .data import DATA, load_prices, load_universe
+from .data import DATA, FIELDS, load_prices, load_universe
 from .framework import Params, atr_frame, indicators, rank_groups, regime_series, select_leaders, setup_for
 
 REGIME_TXT = {2: "Risk-on: SPY & QQQ above 8/21/50 EMA, full size",

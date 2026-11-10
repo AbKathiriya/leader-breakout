@@ -11,3 +11,14 @@ data/prices_test.parquet
 data/bt.log
 data/options_input.json
 report/
+# outputs of run_backtest.py, research scripts and the scheduled runs
+data/bt_watch.json
+data/growth_curve.csv
+data/growth_trades.csv
+data/agg_curve.csv
+data/agg_trades.csv
+data/trades_slots*.csv
+rh_positions.json
+rh_fills.json
+quotes.json
+charts/

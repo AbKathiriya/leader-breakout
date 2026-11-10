@@ -15,7 +15,6 @@ from __future__ import annotations
 import contextlib
 import io
 import json
-import math
 import sys
 from pathlib import Path
 
@@ -157,11 +156,11 @@ def orders() -> dict:
         ep = json.loads(ep_path.read_text()) if ep_path.exists() else None
         if ep and ep.get("as_of") != asof:
             ep = None                                    # EP tickets are only valid the session after the gap day
-        tk = tickets_for(scan, acct, ep=ep)
+        tk = tickets_for(scan, acct, ep=ep, regime=regime)   # today's regime, not the weekly scan's
         for t in tk["tickets"]:
             if t["ticker"] in book or len(buys) >= slots:
                 continue
-            if not t["allowed"]:
+            if not t["allowed"] or t["shares"] < 1:        # too expensive for the account: no ticket
                 continue
             buys.append(t)
     res = {"as_of": asof, "regime": regime, "account": acct, "sells": sells, "buys": buys, "holding": notes}
