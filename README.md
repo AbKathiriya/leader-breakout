@@ -54,9 +54,9 @@ python -m engine.scan          # first run downloads ~3,800 tickers (≈30 min);
 
 Yahoo endpoints needed: `query1.finance.yahoo.com`, `query2.finance.yahoo.com`, `fc.yahoo.com`.
 
-## Backtest (2015 – Oct 2026, daily bars)
+## Backtest (2015 – 10 Nov 2026, daily bars)
 
-> **Audit, Nov 2026.** The numbers in this section are too high. The bar-path model has a look-ahead on fills at the open, and it is not the live ticket procedure. See `docs/AUDIT.md` on branch `audit/live-entry-model` for the corrected results.
+> **Audit, Nov 2026.** The numbers in the first table are too high. The bar-path model has a look-ahead on fills at the open, and it is not the live ticket procedure. The second table gives the corrected entry models. `docs/AUDIT.md` has the details.
 
 Run `python run_backtest.py`; `data/bt_summary.json` holds every variant. Daily bars can't show whether the entry day's low came before or after the fill at the trigger, so three models bracket the 5-minute entry:
 
@@ -64,25 +64,36 @@ Run `python run_backtest.py`; `data/bt_summary.json` holds every variant. Daily 
 - **Optimistic.** The low always came before the fill.
 - **Worst case.** Every ambiguous day is a fill followed by a stop at the max stop.
 
-| Variant (from $10k, 2015 – Oct 2026) | CAGR | Max DD | Sharpe | Trades | Profit factor |
+| Variant (from $10k, 2015 – 10 Nov 2026) | CAGR | Max DD | Sharpe | Trades | Profit factor |
 |---|---|---|---|---|---|
-| **Growth mode (default)** | **40.1%** | **−35.4%** | **1.21** | 190 | 5.52 |
-| Optimistic intraday entry | 45.4% | −35.4% | 1.33 | 83 | 14.2 |
-| Worst-case intraday entry | −19.3% | −95.4% | −0.47 | 432 | 0.43 |
-| No 52-week-high filter | 36.4% | −35.5% | 1.17 | 198 | 4.91 |
-| Add Minervini trend template | 38.8% | −35.4% | 1.19 | 175 | 4.72 |
-| Add pocket-pivot entries | 41.4% | −34.7% | 1.20 | 221 | 4.37 |
-| Idle cash stays cash | 31.4% | −24.6% | 1.11 | 190 | 5.49 |
-| Idle cash in QQQ | 42.4% | −29.5% | 1.22 | 190 | 5.52 |
-| Breakouts only (no EPs) | 29.6% | −35.4% | 1.18 | 91 | 4.41 |
-| Add undercut entries | 40.9% | −35.5% | 1.22 | 208 | 4.44 |
-| No volume-profile check | 38.2% | −32.2% | 1.19 | 311 | 3.83 |
-| No market-regime filter | 28.6% | −38.6% | 0.96 | 213 | 4.47 |
-| Stops up to 1 ADR | 14.1% | −44.8% | 0.55 | 270 | 1.06 |
-| Standard mode (8 × 25%) | 6.1% | −9.1% | 0.88 | 136 | 3.49 |
-| SPY buy and hold | 13.7% | −33.7% | | | |
+| **Growth mode (default)** | **38.5%** | **−35.4%** | **1.18** | 193 | 4.99 |
+| Optimistic intraday entry | 43.4% | −35.4% | 1.29 | 88 | 10.55 |
+| Worst-case intraday entry | −19.5% | −95.6% | −0.47 | 433 | 0.43 |
+| No 52-week-high filter | 34.8% | −38.2% | 1.13 | 199 | 4.50 |
+| Add Minervini trend template | 37.2% | −35.4% | 1.16 | 176 | 4.32 |
+| Add pocket-pivot entries | 38.3% | −34.7% | 1.14 | 224 | 4.03 |
+| Idle cash stays cash | 30.2% | −24.8% | 1.09 | 192 | 4.99 |
+| Idle cash in QQQ | 40.8% | −29.5% | 1.19 | 192 | 5.00 |
+| Breakouts only (no EPs) | 27.9% | −35.4% | 1.13 | 95 | 3.77 |
+| Add undercut entries | 38.6% | −37.2% | 1.17 | 212 | 4.04 |
+| No volume-profile check | 37.1% | −32.2% | 1.17 | 315 | 3.56 |
+| No market-regime filter | 26.6% | −45.5% | 0.91 | 215 | 4.49 |
+| Stops up to 1 ADR | 13.1% | −43.6% | 0.52 | 272 | 1.07 |
+| Standard mode (8 × 25%) | 5.8% | −9.6% | 0.84 | 143 | 3.12 |
+| SPY buy and hold | 13.4% | −33.7% | | | |
 
-Split periods: 28.2% CAGR in 2015–2020 and 54.7% in 2021–2026. Time to $100k from $10k with $1,500/month deposits, across every start month: 2.6 / 3.2 / 3.7 years (25th / median / 75th percentile), versus about 3.7 years median for SPY alone. The edge rests on entering intraday at the trigger with a low-of-day stop. Entering at the close instead earns almost nothing, and allowing wide stops doubles the drawdown. Requiring a heavy-volume leg up cuts trades by two-thirds but makes the strategy far less sensitive to how entry days play out. Results are very sensitive to how failed intraday breakouts play out (see the worst case), so execution discipline is the strategy: skip if the low is already below the max stop, and honour the stop immediately. Survivorship bias (today's listings only) means real results would be lower.
+| Entry model (`python -m research.audit_live`) | CAGR | Max DD | Sharpe | Trades | Profit factor |
+|---|---|---|---|---|---|
+| Published model, as above (`base`) | 38.5% | −35.4% | 1.18 | 193 | 4.99 |
+| Look-ahead on open fills removed (`gap_fix`) | 23.2% | −41.5% | 0.79 | 209 | 1.98 |
+| Live procedure, fill watched (`monitored`) | 19.8% | −39.9% | 0.74 | 156 | 1.96 |
+| Live procedure, fill watched, realistic costs (`monitored_cost`) | 15.2% | −42.7% | 0.61 | 147 | 1.52 |
+| Live procedure, no one watching (`live`) | 12.2% | −49.8% | 0.50 | 285 | 1.09 |
+| Live procedure, no one watching, realistic costs (`live_cost`) | 4.6% | −64.1% | 0.30 | 290 | 0.89 |
+
+All numbers are from prices downloaded on 2026-11-10. A new download changes them by 1 to 2 CAGR points, because Yahoo changes its adjusted prices and the listing file changes.
+
+Split periods for the published model: 26.2% CAGR in 2015–2020 and 53.5% in 2021–2026. Time to $100k from $10k with $1,500/month deposits, across every start month: 2.6 / 3.2 / 3.5 years (25th / median / 75th percentile), versus about 3.7 years median for SPY alone. These two figures also use the published model, so they are too high. The edge rests on entering intraday at the trigger with a low-of-day stop. Entering at the close instead earns almost nothing, and allowing wide stops doubles the drawdown. Requiring a heavy-volume leg up cuts trades by two-thirds but makes the strategy far less sensitive to how entry days play out. Results are very sensitive to how failed intraday breakouts play out (see the worst case), so execution discipline is the strategy: skip if the low is already below the max stop, and honour the stop immediately. Survivorship bias (today's listings only) means real results would be lower.
 
 ## Intraday check of the entry model
 
