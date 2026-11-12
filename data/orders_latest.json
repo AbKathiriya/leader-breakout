@@ -1,8 +1,8 @@
 {
- "as_of": "2026-11-11",
+ "as_of": "2026-11-12",
  "regime": 0,
  "account": {
-  "equity": 4880.6,
+  "equity": 4744.35,
   "monthly_deposit": 1500,
   "mode": "growth_cash",
   "max_positions": 2,
@@ -13,7 +13,15 @@
   "use_undercut": false,
   "idle": "SPY"
  },
- "sells": [],
+ "sells": [
+  {
+   "ticker": "GDXU",
+   "action": "SELL ALL",
+   "shares": 50.0,
+   "type": "market at open",
+   "why": "closed 72.21 below the 50 EMA 100.45"
+  }
+ ],
  "buys": [],
  "holding": []
 }

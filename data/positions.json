@@ -1,1 +1,15 @@
-{}
+{
+ "GDXU": {
+  "entry_date": "2026-11-12",
+  "entry": 74.98,
+  "shares0": 50.0,
+  "max_stop": 72.7306,
+  "stop": 72.7306,
+  "t1": 90.26,
+  "t1_hit": false,
+  "did8": false,
+  "did21": false,
+  "stop_from_day_low": true,
+  "shares": 50.0
+ }
+}
