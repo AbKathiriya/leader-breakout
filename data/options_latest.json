@@ -1,1 +1,29 @@
-{}
+{
+ "PPG": {
+  "ticker": "PPG",
+  "choice": "shares",
+  "stock_rr": 1.12,
+  "best_call": {
+   "strike": 125.0,
+   "mark": 4.5,
+   "bid": 4.1,
+   "ask": 4.9,
+   "delta": 0.471759,
+   "gamma": 0.030239,
+   "theta": -0.049261,
+   "iv": 0.263229,
+   "oi": 345,
+   "expiration": "2027-01-15",
+   "spread_pct": 17.8,
+   "delta_at_entry": 0.64,
+   "est_entry_price": 7.98,
+   "loss_per_contract_at_stop": 200.0,
+   "gain_per_contract_at_t1": 12.0,
+   "rr": 0.06,
+   "contracts": 1,
+   "liquid": false
+  },
+  "iv_rich": false,
+  "summary": "Options too thin (17.8% wide, OI 345); trade shares. Stock R:R 1.1R."
+ }
+}
