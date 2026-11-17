@@ -1,8 +1,8 @@
 {
- "as_of": "2026-11-16",
+ "as_of": "2026-11-17",
  "regime": 0,
  "account": {
-  "equity": 4373.85,
+  "equity": 4441.85,
   "monthly_deposit": 1500,
   "mode": "growth_cash",
   "max_positions": 2,
@@ -19,7 +19,7 @@
    "action": "SELL ALL",
    "shares": 50.0,
    "type": "market at open",
-   "why": "stop 72.73 was hit (low 64.00); exit if the stop order didn't already fill"
+   "why": "stop 72.73 was hit (low 63.53); exit if the stop order didn't already fill"
   }
  ],
  "buys": [],
