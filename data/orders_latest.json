@@ -1,5 +1,5 @@
 {
- "as_of": "2026-11-18",
+ "as_of": "2026-11-19",
  "regime": 0,
  "account": {
   "equity": 4441.85,
@@ -13,15 +13,7 @@
   "use_undercut": false,
   "idle": "SPY"
  },
- "sells": [
-  {
-   "ticker": "GDXU",
-   "action": "SELL ALL",
-   "shares": 50.0,
-   "type": "market at open",
-   "why": "stop 72.73 was hit (low 50.05); exit if the stop order didn't already fill"
-  }
- ],
+ "sells": [],
  "buys": [],
  "holding": []
 }
