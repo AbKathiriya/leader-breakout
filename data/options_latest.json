@@ -1,29 +1,29 @@
 {
- "PPG": {
-  "ticker": "PPG",
+ "AXGN": {
+  "ticker": "AXGN",
   "choice": "shares",
-  "stock_rr": 1.12,
+  "stock_rr": 3.0,
   "best_call": {
-   "strike": 125.0,
-   "mark": 4.5,
-   "bid": 4.1,
-   "ask": 4.9,
-   "delta": 0.471759,
-   "gamma": 0.030239,
-   "theta": -0.049261,
-   "iv": 0.263229,
-   "oi": 345,
+   "strike": 55.0,
+   "mark": 5.6,
+   "bid": 4.2,
+   "ask": 7.0,
+   "delta": 0.5794,
+   "gamma": 0.0306,
+   "theta": -0.0495,
+   "iv": 0.5972,
+   "oi": 267,
    "expiration": "2027-01-15",
-   "spread_pct": 17.8,
-   "delta_at_entry": 0.64,
-   "est_entry_price": 7.98,
-   "loss_per_contract_at_stop": 200.0,
-   "gain_per_contract_at_t1": 12.0,
-   "rr": 0.06,
-   "contracts": 1,
+   "spread_pct": 50.0,
+   "delta_at_entry": 0.7,
+   "est_entry_price": 9.54,
+   "loss_per_contract_at_stop": 400.0,
+   "gain_per_contract_at_t1": 71.0,
+   "rr": 0.18,
+   "contracts": 0,
    "liquid": false
   },
   "iv_rich": false,
-  "summary": "Options too thin (17.8% wide, OI 345); trade shares. Stock R:R 1.1R."
+  "summary": "Options too thin (50.0% wide, OI 267); trade shares. Stock R:R 3.0R."
  }
 }
